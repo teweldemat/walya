@@ -4,28 +4,52 @@ namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetIdentifier(String exp, int index, out String iden, out String idenLower, out ParseNode parseNode)
+        public class IdenResult 
         {
-            parseNode = null;
-            iden = null;
-            idenLower = null;
-            if (index >= exp.Length)
-                return index;
-            var i = index;
-            if (!IsIdentfierFirstChar(exp[i]))
-                return index;
-            i++;
-            while (i < exp.Length && IsIdentfierOtherChar(exp[i]))
+            public IdenResult(int nextIndex, string iden, string idenLower)
+            {
+                this.NextIndex = nextIndex;
+                this.Iden = iden;
+                this.IdenLower = idenLower;
+            }
+            public int NextIndex { get; }
+
+            public string Iden { get; }
+            public string IdenLower { get; }
+
+        }
+        static IdenResult GetIdentifier(ParseContext context,IList<ParseNode> siblings, int index)
+        {
+            string iden = null;
+            string idenLower = null;
+
+            if (index >= context.Expression.Length)
+                return new IdenResult(index,null,null);
+
+            var currentIndex = SkipSpace(context,siblings, index);
+            if (currentIndex >= context.Expression.Length)
+                return new IdenResult(index,null,null);
+
+            if (!IsIdentfierFirstChar(context.Expression[currentIndex]))
+                return new IdenResult(index,null,null);
+
+            var i = currentIndex + 1;
+            while (i < context.Expression.Length && IsIdentfierOtherChar(context.Expression[i]))
             {
                 i++;
             }
 
-            iden = exp.Substring(index, i - index);
+            iden = context.Expression.Substring(currentIndex, i - currentIndex);
             idenLower = iden.ToLower();
+
             if (s_KeyWords.Contains(idenLower))
-                return index;
-            parseNode = new ParseNode(ParseNodeType.Identifier, index, i - index);
-            return i;
+            {
+                return new IdenResult(index,null,null);
+            }
+
+            var parseNode = new ParseNode(ParseNodeType.Identifier, currentIndex, i - currentIndex);
+            siblings.Add(parseNode);
+            return new IdenResult(index,iden,idenLower);
         }
     }
 }

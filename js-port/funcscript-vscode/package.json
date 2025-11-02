@@ -52,6 +52,6 @@
     "vsce": "^2.15.0"
   },
   "dependencies": {
-    "@tewelde/funcscript": "file:../funcscript-js"
+    "@tewelde/funcscript": "file:tewelde-funcscript-0.1.4.tgz"
   }
 }

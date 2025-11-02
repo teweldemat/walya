@@ -3,19 +3,28 @@ namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetKeyWordLiteral(String exp, int index, out object literal, out ParseNode parseNode)
+        static int GetKeyWordLiteral(ParseContext context,IList<ParseNode> siblings, int index, out object literal, out ParseNode parseNode)
         {
             parseNode = null;
-            var i = GetLiteralMatch(exp, index, "null");
-            if (i > index)
+            literal = null;
+
+            if (index >= context.Expression.Length)
+                return index;
+
+            var currentIndex = SkipSpace(context,siblings,  index);
+            if (currentIndex >= context.Expression.Length)
+                return index;
+
+            var i = GetLiteralMatch(context.Expression, currentIndex, "null");
+            if (i > currentIndex)
             {
                 literal = null;
             }
-            else if ((i = GetLiteralMatch(exp, index, "true")) > index)
+            else if ((i = GetLiteralMatch(context.Expression, currentIndex, "true")) > currentIndex)
             {
                 literal = true;
             }
-            else if ((i = GetLiteralMatch(exp, index, "false")) > index)
+            else if ((i = GetLiteralMatch(context.Expression, currentIndex, "false")) > currentIndex)
             {
                 literal = false;
             }
@@ -25,7 +34,8 @@ namespace FuncScript.Core
                 return index;
             }
 
-            parseNode = new ParseNode(ParseNodeType.KeyWord, index, i - index);
+            parseNode = new ParseNode(ParseNodeType.KeyWord, currentIndex, i - currentIndex);
+            siblings.Add(parseNode);
             return i;
         }
     }

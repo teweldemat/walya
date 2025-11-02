@@ -1,18 +1,31 @@
+using System;
+using System.Collections.Generic;
+
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
+        public static ParseBlockResult Parse(ParseContext context)
+        {
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+            return GetRootExpression(context, 0);
+        }
+
         public static ExpressionBlock Parse(IFsDataProvider context, String exp, List<SyntaxErrorData> serrors)
         {
-            return Parse(context, exp, out var node, serrors);
+            var errors = serrors ?? new List<SyntaxErrorData>();
+            return Parse(context, exp, out _, errors);
         }
 
 
         public static ExpressionBlock Parse(IFsDataProvider context, String exp, out ParseNode parseNode,
             List<SyntaxErrorData> serrors)
         {
-            var i = GetRootExpression(context, exp, 0, out var prog, out parseNode, serrors);
-            return prog;
+            var errors = serrors ?? new List<SyntaxErrorData>();
+            var result = Parse(new ParseContext(context, exp, errors));
+            parseNode = result.ParseNode;
+            return result.ExpressionBlock;
         }
 
 

@@ -6,21 +6,14 @@ namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static ValueParseResult<ListExpression> GetListExpression(ParseContext context, IList<ParseNode> siblings,
-            int index)
+        static ValueParseResult<ListExpression> GetSpaceSeparatedListExpression(ParseContext context,
+            IList<ParseNode> siblings, int index)
         {
             if (context == null)
                 throw new ArgumentNullException(nameof(context));
 
-            var errors = context.ErrorsList;
             var exp = context.Expression;
-
             var currentIndex = index;
-            var afterOpen = GetToken(exp, currentIndex,siblings,ParseNodeType.OpenBrace, "[");
-            if (afterOpen == currentIndex)
-                return new ValueParseResult<ListExpression>(index, null, null);
-
-            currentIndex = afterOpen;
 
             var items = new List<ExpressionBlock>();
             var nodes = new List<ParseNode>();
@@ -34,13 +27,13 @@ namespace FuncScript.Core
 
                 while (true)
                 {
-                    var afterComma = GetToken(exp, currentIndex,siblings,ParseNodeType.Colon,  ",");
-                    if (afterComma == currentIndex)
+                    var afterSeparator = GetWhitespaceToken(exp,siblings, currentIndex);
+                    if (afterSeparator == currentIndex)
                         break;
-                    
-                    currentIndex = afterComma;
-                    var nextResult = GetExpression(context, nodes, currentIndex);
-                    if (!nextResult.HasProgress(currentIndex))
+
+                    var nextIndex = afterSeparator;
+                    var nextResult = GetExpression(context, nodes, nextIndex);
+                    if (!nextResult.HasProgress(nextIndex))
                         break;
 
                     if (nextResult.ExpressionBlock != null)
@@ -49,17 +42,10 @@ namespace FuncScript.Core
                 }
             }
 
-            var afterClose = GetToken(exp, currentIndex,siblings,ParseNodeType.CloseBrance, "]");
-            if (afterClose == currentIndex)
-            {
-                errors.Add(new SyntaxErrorData(currentIndex, 0, "']' expected"));
-                return new ValueParseResult<ListExpression>(index, null, null);
-            }
-
-            currentIndex = afterClose;
             var listExpression = new ListExpression { ValueExpressions = items.ToArray() };
             var parseNode = new ParseNode(ParseNodeType.List, index, currentIndex - index, nodes);
             siblings?.Add(parseNode);
+
             return new ValueParseResult<ListExpression>(currentIndex, listExpression, parseNode);
         }
     }

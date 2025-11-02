@@ -3,17 +3,26 @@ using global::FuncScript.Core;
 using global::FuncScript.Model;
 using FuncScriptParser = global::FuncScript.Core.FuncScriptParser;
 using ParseNode = global::FuncScript.Core.FuncScriptParser.ParseNode;
+using ParseContext = global::FuncScript.Core.FuncScriptParser.ParseContext;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Principal;
 using static global::FuncScript.Core.FuncScriptParser;
 
 namespace FuncScript.Test
 {
     internal class ParseTreeTests
     {
+        static ParseBlockResult ParseExpression(IFsDataProvider provider, string expression,
+            List<FuncScriptParser.SyntaxErrorData> errors)
+        {
+            var context = new ParseContext(provider, expression, errors);
+            return FuncScriptParser.Parse(context);
+        }
+
         static ParseNode Flatten(ParseNode node)
         {
             if(node.Childs.Count==1)
@@ -34,10 +43,11 @@ namespace FuncScript.Test
             var g = new DefaultFsDataProvider();
             var expText = "{a,b,c}";
             var list = new List<FuncScriptParser.SyntaxErrorData>();
-            var exp= FuncScriptParser.Parse(g, expText,out var node,list);
-            Assert.IsNotNull(exp);
-            Assert.IsNotNull(node);
-            node = Flatten(node);
+            var result = ParseExpression(g, expText, list);
+            Assert.AreEqual(expText.Length, result.NextIndex);
+            Assert.IsNotNull(result.ExpressionBlock);
+            Assert.IsNotNull(result.ParseNode);
+            var node = Flatten(result.ParseNode);
             Assert.AreEqual(Tuple.Create(ParseNodeType.KeyValueCollection,0,expText.Length), Tuple.Create(node.NodeType,node.Pos,node.Length));
 
         }
@@ -48,11 +58,14 @@ namespace FuncScript.Test
             var provider = new DefaultFsDataProvider();
             var expText = "1+2";
             var errors = new List<FuncScriptParser.SyntaxErrorData>();
-            var block = FuncScriptParser.Parse(provider, expText, out var node, errors);
+            var result = ParseExpression(provider, expText, errors);
+            var block = result.ExpressionBlock;
+            var node = result.ParseNode;
 
             Assert.IsNotNull(block, "Expression should be parsed into a block instance");
             Assert.IsNotNull(node, "Parse node is expected for valid expression");
             Assert.IsEmpty(errors, "No syntax errors should be reported for a simple expression");
+            Assert.AreEqual(expText.Length, result.NextIndex, "Parser should consume entire expression");
 
             //check parse node tree
             Assert.AreEqual(ParseNodeType.InfixExpression, node.NodeType, "Root node should represent an infix expression");
@@ -102,11 +115,14 @@ namespace FuncScript.Test
             var provider = new DefaultFsDataProvider();
             var expression = "if 1=1 then 3 else 4";
             var errors = new List<FuncScriptParser.SyntaxErrorData>();
-            var block = FuncScriptParser.Parse(provider, expression, out var node, errors);
+            var result = ParseExpression(provider, expression, errors);
+            var block = result.ExpressionBlock;
+            var node = result.ParseNode;
 
             Assert.IsNotNull(block);
             Assert.IsNotNull(node);
             Assert.IsEmpty(errors);
+            Assert.AreEqual(expression.Length, result.NextIndex);
 
             Assert.AreEqual(ParseNodeType.FunctionCall, node.NodeType);
             Assert.AreEqual(0, node.Pos);
@@ -159,10 +175,13 @@ namespace FuncScript.Test
             var provider = new DefaultFsDataProvider();
             var expText = "1+sin(45)";
             var errors = new List<FuncScriptParser.SyntaxErrorData>();
-            var block = FuncScriptParser.Parse(provider, expText, out var node, errors);
+            var result = ParseExpression(provider, expText, errors);
+            var block = result.ExpressionBlock;
+            var node = result.ParseNode;
             Assert.IsNotNull(block);
             Assert.IsNotNull(node);
             Assert.IsEmpty(errors);
+            Assert.AreEqual(expText.Length, result.NextIndex);
             AssertTreeSpanConsitency(node);
             var color = FuncScriptRuntime.ColorParseTree(node).ToArray();
             Assert.That(color, Has.Length.EqualTo(6));
@@ -218,10 +237,13 @@ namespace FuncScript.Test
             var provider = new DefaultFsDataProvider();
             var expText = "(x)=>45";
             var errors = new List<FuncScriptParser.SyntaxErrorData>();
-            var block = FuncScriptParser.Parse(provider, expText, out var node, errors);
+            var result = ParseExpression(provider, expText, errors);
+            var block = result.ExpressionBlock;
+            var node = result.ParseNode;
             Assert.IsNotNull(block);
             Assert.IsNotNull(node);
             Assert.IsEmpty(errors);
+            Assert.AreEqual(expText.Length, result.NextIndex);
             AssertTreeSpanConsitency(node);
             var color = FuncScriptRuntime.ColorParseTree(node).ToArray();
             Assert.That(color, Has.Length.EqualTo(5));
@@ -265,19 +287,34 @@ namespace FuncScript.Test
         
         }
 
+        void AssertRootNode(ParseNode rootNode,string expression)
+        {
+            Assert.That(rootNode.NodeType, Is.EqualTo(ParseNodeType.RootExpression));
+            Assert.That(rootNode.Pos, Is.EqualTo(0));
+            Assert.That(rootNode.Length, Is.EqualTo(expression.Length), "Root node length should cover the entire expression");
+
+        }
         [Test]
         public void CaseParseNodeLengthMatchesExpressionSpan()
         {
             var provider = new DefaultFsDataProvider();
             var expression = "case true: 1";
             var errors = new List<FuncScriptParser.SyntaxErrorData>();
-            FuncScriptParser.Parse(provider, expression, out var node, errors);
+            var result = ParseExpression(provider, expression, errors);
+            var node = result.ParseNode;
 
             Assert.That(errors, Is.Empty, "Parsing a simple case expression should not report errors");
             Assert.That(node, Is.Not.Null, "Parser should produce a parse node for a valid case expression");
+            
+            AssertRootNode(node,expression);
+            AssertTreeSpanConsitency(node);
+            Assert.That(node.Childs.Count, Is.EqualTo(1));
+            node = node.Childs[0];
+            
             Assert.That(node.NodeType, Is.EqualTo(ParseNodeType.Case));
             Assert.That(node.Pos, Is.EqualTo(0));
             Assert.That(node.Length, Is.EqualTo(expression.Length), "Case node length should cover the entire expression");
+            Assert.That(result.NextIndex, Is.EqualTo(expression.Length));
         }
 
         [Test]
@@ -286,13 +323,15 @@ namespace FuncScript.Test
             var provider = new DefaultFsDataProvider();
             var expression = "switch 1, 1: \"one\"";
             var errors = new List<FuncScriptParser.SyntaxErrorData>();
-            FuncScriptParser.Parse(provider, expression, out var node, errors);
+            var result = ParseExpression(provider, expression, errors);
+            var node = result.ParseNode;
 
             Assert.That(errors, Is.Empty, "Parsing a switch expression should not report errors");
             Assert.That(node, Is.Not.Null, "Parser should produce a parse node for a valid switch expression");
             Assert.That(node.NodeType, Is.EqualTo(ParseNodeType.Case));
             Assert.That(node.Pos, Is.EqualTo(0));
             Assert.That(node.Length, Is.EqualTo(expression.Length), "Switch node length should cover the entire expression");
+            Assert.That(result.NextIndex, Is.EqualTo(expression.Length));
         }
 
         [Test]
@@ -301,10 +340,17 @@ namespace FuncScript.Test
             var provider = new DefaultFsDataProvider();
             var expression = "  [\"a\",\"b\"] join \",\"";
             var errors = new List<FuncScriptParser.SyntaxErrorData>();
-            FuncScriptParser.Parse(provider, expression, out var node, errors);
+            var result = ParseExpression(provider, expression, errors);
+            var node = result.ParseNode;
 
             Assert.That(errors, Is.Empty, "General infix parsing should succeed");
             Assert.That(node, Is.Not.Null);
+            
+            AssertRootNode(node,expression);
+            AssertTreeSpanConsitency(node);
+            Assert.That(node.Childs.Count, Is.EqualTo(1));
+            node = node.Childs[0];
+
             Assert.That(node.NodeType, Is.EqualTo(ParseNodeType.GeneralInfixExpression));
 
             var expectedStart = expression.IndexOf('[');
@@ -312,6 +358,7 @@ namespace FuncScript.Test
 
             var expectedLength = expression.Length - expectedStart;
             Assert.That(node.Length, Is.EqualTo(expectedLength), "General infix node should span its operand range");
+            Assert.That(result.NextIndex, Is.EqualTo(expression.Length));
         }
 
         [Test]
@@ -320,7 +367,8 @@ namespace FuncScript.Test
             var provider = new DefaultFsDataProvider();
             var expression = "  [\"a\",\"b\"] join \",\"";
             var errors = new List<FuncScriptParser.SyntaxErrorData>();
-            var block = FuncScriptParser.Parse(provider, expression, out _, errors);
+            var result = ParseExpression(provider, expression, errors);
+            var block = result.ExpressionBlock;
 
             Assert.That(errors, Is.Empty, "General infix parsing should succeed");
             Assert.That(block, Is.TypeOf<FunctionCallExpression>());
@@ -330,6 +378,7 @@ namespace FuncScript.Test
 
             var expectedLength = expression.Length - expectedStart;
             Assert.That(block.CodeLocation.Length, Is.EqualTo(expectedLength), "Function call block should cover the entire infix expression");
+            Assert.That(result.NextIndex, Is.EqualTo(expression.Length));
         }
 
         [Test]
@@ -338,7 +387,8 @@ namespace FuncScript.Test
             var provider = new DefaultFsDataProvider();
             var expression = "  [\"a\",\"b\"] join \",\"";
             var errors = new List<FuncScriptParser.SyntaxErrorData>();
-            var block = FuncScriptParser.Parse(provider, expression, out _, errors);
+            var result = ParseExpression(provider, expression, errors);
+            var block = result.ExpressionBlock;
 
             Assert.That(errors, Is.Empty, "General infix parsing should succeed");
             var call = block as FunctionCallExpression;
@@ -347,6 +397,37 @@ namespace FuncScript.Test
             var functionIdentifierIndex = expression.IndexOf("join", StringComparison.Ordinal);
             Assert.That(call.Function.CodeLocation.Position, Is.EqualTo(functionIdentifierIndex));
             Assert.That(call.Function.CodeLocation.Length, Is.EqualTo("join".Length));
+            Assert.That(result.NextIndex, Is.EqualTo(expression.Length));
+        }
+        
+        [Test]
+        public void WhiteSpace1()
+        {
+            var provider = new DefaultFsDataProvider();
+            var expression = "  x";
+            var errors = new List<FuncScriptParser.SyntaxErrorData>();
+            var result = ParseExpression(provider, expression, errors);
+            var block = result.ExpressionBlock;
+
+            Assert.That(errors, Is.Empty);
+            var refBlock = block as ReferenceBlock;
+            Assert.IsNotNull(refBlock, "General infix parsing should produce a function call expression");
+
+            Assert.That(result.ParseNode.NodeType,Is.EqualTo(ParseNodeType.RootExpression));
+            Assert.That(result.ParseNode.Childs,Has.Count.EqualTo(2));
+            var i = 0;
+            var l = 1;
+            var node = result.ParseNode.Childs[0];
+            Assert.That(node.NodeType,Is.EqualTo(ParseNodeType.WhiteSpace));
+            Assert.That(node.Pos,Is.EqualTo(i));
+            Assert.That(node.Length,Is.EqualTo(l));
+            i += l;
+            
+            l = 1;
+            node = result.ParseNode.Childs[0];
+            Assert.That(node.NodeType,Is.EqualTo(ParseNodeType.Identifier));
+            Assert.That(node.Pos,Is.EqualTo(i));
+            Assert.That(node.Length,Is.EqualTo(l));
         }
     }
 }

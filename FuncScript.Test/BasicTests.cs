@@ -11,6 +11,13 @@ namespace FuncScript.Test
 
     public class TestSet2
     {
+        [Test]
+        public void OnePlusOne()
+        {
+            var exp = @"1+1";
+            var res = FuncScriptRuntime.Evaluate(exp);
+            Assert.That(res,Is.EqualTo(2));
+        }
         
         [Test]
         public void CallingNoneFunction()
@@ -387,6 +394,7 @@ return j;
             var res = FuncScriptRuntime.Evaluate(exp);
             Assert.AreEqual(5, res);
         }
+        
         
         [Test]
         public void LambdaFunctionCaseIssue()

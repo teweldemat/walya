@@ -15,9 +15,12 @@ public class BugAnalysis
         var exp = System.IO.File.ReadAllText(@"data/parse-test-1.fx");
         var err = new List<FuncScriptParser.SyntaxErrorData>();
         var timer = System.Diagnostics.Stopwatch.StartNew();
-        var block=FuncScriptParser.Parse(new DefaultFsDataProvider(), exp,err);
+        var parseContext = new FuncScriptParser.ParseContext(new DefaultFsDataProvider(), exp, err);
+        var parseResult = FuncScriptParser.Parse(parseContext);
+        var block = parseResult.ExpressionBlock;
         Assert.NotNull(exp);
         Assert.IsEmpty(err);
+        Assert.That(parseResult.NextIndex, Is.EqualTo(exp.Length));
         timer.Stop();
         Assert.Less(timer.ElapsedMilliseconds, 500);
         Console.WriteLine($"Parsing took {timer.ElapsedMilliseconds} milliseconds");
@@ -29,9 +32,12 @@ public class BugAnalysis
         var exp = "{x:2,y:{x:2,y:{x:2,y:{x:2,y:{x:2,y:{x:2,y:{x:2,y:{x:2,y:5}}}}}}}}";
         var err = new List<FuncScriptParser.SyntaxErrorData>();
         var timer = System.Diagnostics.Stopwatch.StartNew();
-        var block=FuncScriptParser.Parse(new DefaultFsDataProvider(), exp,err);
+        var parseContext = new FuncScriptParser.ParseContext(new DefaultFsDataProvider(), exp, err);
+        var parseResult = FuncScriptParser.Parse(parseContext);
+        var block = parseResult.ExpressionBlock;
         Assert.NotNull(exp);
         Assert.IsEmpty(err);
+        Assert.That(parseResult.NextIndex, Is.EqualTo(exp.Length));
         timer.Stop();
         Assert.Less(timer.ElapsedMilliseconds, 500);
         Console.WriteLine($"Parsing took {timer.ElapsedMilliseconds} milliseconds");

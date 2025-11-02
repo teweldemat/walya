@@ -1,26 +1,38 @@
+using System;
+using System.Collections.Generic;
+
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int SkipSpace(String exp, int index)
+        static int SkipSpace(ParseContext context,IList<ParseNode> siblings,  int index)
         {
-            int i = index;
-            while (index < exp.Length)
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            var exp = context.Expression;
+
+            var i = index;
+            while (i < exp.Length && isCharWhiteSpace(exp[i]))
             {
-                if (isCharWhiteSpace(exp[index]))
-                {
-                    index++;
-                }
-                else
-                {
-                    i = GetCommentBlock(exp, index, out var nodeComment);
-                    if (i == index)
-                        break;
-                    index = i;
-                }
+                i++;
             }
 
-            return index;
+            if (i > index)
+            {
+                siblings.Add(new ParseNode(ParseNodeType.WhiteSpace, index, i - index));
+            }
+
+            var commentResult = GetCommentBlock(context, i);
+            if (commentResult.HasProgress(i) && commentResult.ParseNode != null)
+            {
+                siblings.Add(commentResult.ParseNode);
+                i = commentResult.NextIndex;
+            }
+
+            return i;
         }
+
+        
     }
 }

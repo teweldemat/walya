@@ -1,30 +1,16 @@
-using FuncScript.Block;
-using FuncScript.Functions.Math;
-using System.Text;
-using System.Text.RegularExpressions;
-using FuncScript.Functions.Logic;
-using FuncScript.Model;
+using System;
 using System.Collections.Generic;
 
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetExpression(IFsDataProvider parseContext, String exp, int index, out ExpressionBlock prog,
-            out ParseNode parseNode, List<SyntaxErrorData> serrors)
+        static ParseBlockResult GetExpression(ParseContext context, IList<ParseNode> siblings, int index)
         {
-            // var i = GetInfixFunctionCall(parseContext, exp, index, out prog, out parseNode, serrors);
-            // if (i > index)
-            //     return i;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
 
-            var i = GetInfixExpression(parseContext, exp, index, out prog, out parseNode, serrors);
-            if (i > index)
-                return i;
-
-            return index;
+            return GetInfixExpression(context, siblings, index);
         }
-
-        // Other methods like GetInfixFunctionCall, GetInfixExpression, etc., required by GetExpression
-        // should also be included in this partial class or another partial class as needed.
     }
 }

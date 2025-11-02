@@ -5,6 +5,7 @@ using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using FuncScript.Block;
+using FuncScriptParser = global::FuncScript.Core.FuncScriptParser;
 
 namespace FuncScript.Test
 {
@@ -215,10 +216,13 @@ namespace FuncScript.Test
             var expression = "if 1=1 then \"yes\" else \"no\"";
 
             var errors = new List<FuncScriptParser.SyntaxErrorData>();
-            var expr = FuncScriptParser.Parse(provider, expression, errors);
+            var parseContext = new FuncScriptParser.ParseContext(provider, expression, errors);
+            var parseResult = FuncScriptParser.Parse(parseContext);
+            var expr = parseResult.ExpressionBlock;
 
             Assert.That(errors, Is.Empty);
             Assert.That(expr, Is.TypeOf<FunctionCallExpression>());
+            Assert.That(parseResult.NextIndex, Is.EqualTo(expression.Length));
 
             var result = FuncScriptRuntime.Evaluate(provider, expression);
             Assert.That(result, Is.EqualTo("yes"));

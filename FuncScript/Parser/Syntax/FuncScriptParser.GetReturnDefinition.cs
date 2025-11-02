@@ -1,33 +1,44 @@
+using System;
+using System.Collections.Generic;
+using FuncScript.Block;
 
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetReturnDefinition(IFsDataProvider context, String exp, int index, out ExpressionBlock retExp,
-            out ParseNode parseNode, List<SyntaxErrorData> serrors)
+        static ParseBlockResult GetReturnDefinition(ParseContext context, IList<ParseNode> siblings, int index)
         {
-            parseNode = null;
-            retExp = null;
-            var i = GetLiteralMatch(exp, index, KW_RETURN);
-            if (i == index)
-                return index;
-            var nodeReturn = new ParseNode(ParseNodeType.KeyWord, index, i - index);
-            i = SkipSpace(exp, i);
-            var i2 = GetExpression(context, exp, i, out var expBlock, out var nodeExpBlock, serrors);
-            if (i2 == i)
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            var errors = context.ErrorsList;
+            var exp = context.Expression;
+
+            var childNodes = new List<ParseNode>();
+            var keywordResult = GetKeyWord(context, childNodes, index, KW_RETURN);
+            if (keywordResult==index)
+                return ParseBlockResult.NoAdvance(index);
+
+            var currentIndex = keywordResult;
+            var valueResult = GetExpression(context, childNodes, currentIndex);
+            if (!valueResult.HasProgress(currentIndex) || valueResult.ExpressionBlock == null)
             {
-                serrors.Add(new SyntaxErrorData(i, 0, "return expression expected"));
-                return index;
+                errors.Add(new SyntaxErrorData(currentIndex, 0, "return expression expected"));
+                return ParseBlockResult.NoAdvance(index);
             }
 
-            i = i2;
-            retExp = expBlock;
-            retExp.Pos = index;
-            retExp.Length = i - index;
-            parseNode = new ParseNode(ParseNodeType.ExpressionInBrace, index, i - index,
-                new[] { nodeReturn, nodeExpBlock });
+            currentIndex = valueResult.NextIndex;
 
-            return i;
+            var expression = valueResult.ExpressionBlock;
+            expression.Pos = index;
+            expression.Length = currentIndex - index;
+
+            var parseNode = new ParseNode(ParseNodeType.ExpressionInBrace, index, currentIndex - index,
+                childNodes);
+
+            siblings?.Add(parseNode);
+
+            return new ParseBlockResult(currentIndex, expression, parseNode);
         }
     }
 }

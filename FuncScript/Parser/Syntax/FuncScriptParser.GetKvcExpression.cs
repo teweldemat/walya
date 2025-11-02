@@ -1,112 +1,106 @@
+using System;
+using System.Collections.Generic;
 using FuncScript.Block;
 
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetKvcExpression(IFsDataProvider context, bool nakdeMode, String exp, int index,
-            out KvcExpression kvcExpr,
-            out ParseNode parseNode, List<SyntaxErrorData> serrors)
+        static ValueParseResult<KvcExpression> GetKvcExpression(ParseContext context, IList<ParseNode> siblings,
+            bool nakedMode, int index)
         {
-            parseNode = null;
-            kvcExpr = null;
-            var i = SkipSpace(exp, index);
-            int i2;
-            if (!nakdeMode)
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            var errors = context.ErrorsList;
+            var exp = context.Expression;
+
+            var currentIndex = index;
+            if (!nakedMode)
             {
-                i2 = GetLiteralMatch(exp, i, "{");
-                if (i2 == i)
-                    return index;
-                i = SkipSpace(exp, i2);
+                var afterOpen = GetToken(exp, currentIndex,siblings,ParseNodeType.OpenBrace, "{");
+                if (afterOpen == currentIndex)
+                    return new ValueParseResult<KvcExpression>(index, null, null);
+
+                currentIndex = afterOpen;
             }
 
-            var kvs = new List<KvcExpression.KeyValueExpression>();
-            var dataConnections = new List<KvcExpression.ConnectionExpression>();
-            var signalConnections = new List<KvcExpression.ConnectionExpression>();
+            var keyValues = new List<KvcExpression.KeyValueExpression>();
+            ExpressionBlock returnExpression = null;
             var nodeItems = new List<ParseNode>();
-            ExpressionBlock retExp = null;
-            do
+
+            while (true)
             {
-                if (kvs.Count > 0 || retExp != null || dataConnections.Count > 0 || signalConnections.Count > 0)
+                var beforeItemWhitespace = SkipSpace(context, currentIndex);
+                if (beforeItemWhitespace.HasProgress(currentIndex))
                 {
-                    i2 = GetLiteralMatch(exp, i, ",", ";");
-                    if (i2 == i)
-                        break;
-                    i = SkipSpace(exp, i2);
+                    currentIndex = beforeItemWhitespace.NextIndex;
+                    if (beforeItemWhitespace.ParseNode != null)
+                        nodeItems.Add(beforeItemWhitespace.ParseNode);
                 }
 
-                i2 = GetConnectionItem(context, exp, i, out var dataConItem, out var datanCodeConItem,
-                    ParseNodeType.DataConnection);
-                if (i2 > i)
-                {
-                    dataConnections.Add(dataConItem);
-                    nodeItems.Add(datanCodeConItem);
-                    i = SkipSpace(exp, i2);
-                    continue;
-                }
-
-
-                i2 = GetConnectionItem(context, exp, i, out var sigConItem, out var signNodeConItem,
-                    ParseNodeType.SignalConnection);
-                if (i2 > i)
-                {
-                    signalConnections.Add(sigConItem);
-                    nodeItems.Add(signNodeConItem);
-                    i = SkipSpace(exp, i2);
-                    continue;
-                }
-
-
-                i2 = GetKvcItem(context, nakdeMode, exp, i, out var otherItem, out var nodeOtherItem);
-                if (i2 == i)
+                var itemResult = GetKvcItem(context, nodeItems, nakedMode, currentIndex);
+                if (!itemResult.HasProgress(currentIndex))
                     break;
-                if (otherItem.Key == null)
+
+                if (itemResult.Value.Key == null)
                 {
-                    if (retExp != null)
+                    if (returnExpression != null)
                     {
-                        serrors.Add(new SyntaxErrorData(nodeOtherItem.Pos, nodeItems.Count,
-                            "Duplicate return statement"));
-                        return index;
+                        var errorPos = itemResult.ParseNode?.Pos ?? currentIndex;
+                        errors.Add(new SyntaxErrorData(errorPos, nodeItems.Count, "Duplicate return statement"));
+                        return new ValueParseResult<KvcExpression>(index, null, null);
                     }
 
-                    retExp = otherItem.ValueExpression;
+                    returnExpression = itemResult.Value.ValueExpression;
                 }
                 else
-                    kvs.Add(otherItem);
-
-                nodeItems.Add(nodeOtherItem);
-                i = SkipSpace(exp, i2);
-            } while (true);
-
-            if (!nakdeMode)
-            {
-                i2 = GetLiteralMatch(exp, i, "}");
-                if (i2 == i)
                 {
-                    serrors.Add(new SyntaxErrorData(i, 0, "'}' expected"));
-                    return index;
+                    keyValues.Add(itemResult.Value);
                 }
 
-                i = SkipSpace(exp, i2);
+                currentIndex = itemResult.NextIndex;
+
+                var afterItemWhitespace = SkipSpace(context, currentIndex);
+                if (afterItemWhitespace.HasProgress(currentIndex))
+                {
+                    currentIndex = afterItemWhitespace.NextIndex;
+                    if (afterItemWhitespace.ParseNode != null)
+                        nodeItems.Add(afterItemWhitespace.ParseNode);
+                }
+
+                var afterSeparator = GetToken(exp, currentIndex, nodeItems, ParseNodeType.ListSeparator, ",", ";");
+                if (afterSeparator > currentIndex)
+                    currentIndex = afterSeparator;
             }
 
-            if (nakdeMode)
+            if (!nakedMode)
             {
-                if (kvs.Count == 0 && retExp == null && dataConnections.Count == 0 && signalConnections.Count == 0)
-                    return index;
-            }
+                var afterClose = GetToken(exp, currentIndex,siblings,ParseNodeType.CloseBrance, "}");
+                if (afterClose == currentIndex)
+                {
+                    errors.Add(new SyntaxErrorData(currentIndex, 0, "'}' expected"));
+                    return new ValueParseResult<KvcExpression>(index, null, null);
+                }
 
-            kvcExpr = new KvcExpression();
-            var error = kvcExpr.SetKeyValues(kvs.ToArray(), retExp, dataConnections.ToArray(),
-                signalConnections.ToArray());
-            if (error != null)
+                currentIndex = afterClose;
+            }
+            else if (keyValues.Count == 0 && returnExpression == null)
             {
-                serrors.Add(new SyntaxErrorData(index, i - index, error));
-                return index;
+                return new ValueParseResult<KvcExpression>(index, null, null);
             }
 
-            parseNode = new ParseNode(ParseNodeType.KeyValueCollection, index, i - index, nodeItems);
-            return i;
+            var kvcExpression = new KvcExpression();
+            var validationError = kvcExpression.SetKeyValues(keyValues.ToArray(), returnExpression);
+            if (validationError != null)
+            {
+                errors.Add(new SyntaxErrorData(index, currentIndex - index, validationError));
+                return new ValueParseResult<KvcExpression>(index, null, null);
+            }
+
+            var parseNode = new ParseNode(ParseNodeType.KeyValueCollection, index, currentIndex - index, nodeItems);
+            siblings?.Add(parseNode);
+            return new ValueParseResult<KvcExpression>(currentIndex, kvcExpression, parseNode);
         }
     }
 }

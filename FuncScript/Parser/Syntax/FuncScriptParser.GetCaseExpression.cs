@@ -1,81 +1,88 @@
+using System;
+using System.Collections.Generic;
 using FuncScript.Block;
 using FuncScript.Model;
-using System.Collections.Generic;
 
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetCaseExpression(IFsDataProvider context, String exp, int index, out ExpressionBlock prog,
-            out ParseNode parseNode, List<SyntaxErrorData> serrors)
+        static ParseBlockResult GetCaseExpression(ParseContext context, IList<ParseNode> siblings, int index)
         {
-            prog = null;
-            parseNode = null;
-            var i = index;
-            var i2 = GetLiteralMatch(exp, i, KW_CASE);
-            if (i2 == i)
-                return index;
-            i = SkipSpace(exp, i2);
-            var pars = new List<ExpressionBlock>();
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            var errors = context.ErrorsList;
+            var exp = context.Expression;
+
             var childNodes = new List<ParseNode>();
-            do
+            var keywordResult = GetKeyWord(context, childNodes, index, KW_CASE);
+            if (keywordResult==index)
+                return ParseBlockResult.NoAdvance(index);
+
+            var currentIndex = keywordResult;
+            var parameters = new List<ExpressionBlock>();
+
+            while (true)
             {
-                if (pars.Count == 0)
+                if (parameters.Count == 0)
                 {
-                    i2 = GetExpression(context, exp, i, out var part1, out var part1Node, serrors);
-                    if (i2 == i)
+                    var conditionResult = GetExpression(context, childNodes, currentIndex);
+                    if (!conditionResult.HasProgress(currentIndex) || conditionResult.ExpressionBlock == null)
                     {
-                        serrors.Add(new SyntaxErrorData(i, 1, "Case condition expected"));
-                        return index;
+                        errors.Add(new SyntaxErrorData(currentIndex, 1, "Case condition expected"));
+                        return ParseBlockResult.NoAdvance(index);
                     }
 
-                    pars.Add(part1);
-                    childNodes.Add(part1Node);
-                    i = SkipSpace(exp, i2);
+                    parameters.Add(conditionResult.ExpressionBlock);
+                    currentIndex = conditionResult.NextIndex;
                 }
                 else
                 {
-                    i2 = GetLiteralMatch(exp, i, ",", ";");
-                    if (i2 == i)
+                    var afterSeparator = GetToken(exp, currentIndex,childNodes,ParseNodeType.ListSeparator, ",", ";");
+                    if (afterSeparator == currentIndex)
                         break;
-                    i = SkipSpace(exp, i2);
-                    i2 = GetExpression(context, exp, i, out var part1, out var part1Node, serrors);
-                    if (i2 == i)
+
+                    currentIndex = afterSeparator;
+
+                    var nextCondition = GetExpression(context, childNodes, currentIndex);
+                    if (!nextCondition.HasProgress(currentIndex) || nextCondition.ExpressionBlock == null)
                         break;
-                    pars.Add(part1);
-                    childNodes.Add(part1Node);
-                    i = SkipSpace(exp, i2);
+
+                    parameters.Add(nextCondition.ExpressionBlock);
+                    currentIndex = nextCondition.NextIndex;
                 }
 
-                i2 = GetLiteralMatch(exp, i, ":");
-                if (i2 == i)
-                {
+                var afterColon = GetToken(exp, currentIndex,childNodes,ParseNodeType.Colon, ":");
+                if (afterColon == currentIndex)
                     break;
-                }
 
-                i = SkipSpace(exp, i2);
-                i2 = GetExpression(context, exp, i, out var part2, out var part2Node, serrors);
-                if (i2 == i)
+                var valueIndex = afterColon;
+
+                var valueResult = GetExpression(context, childNodes, valueIndex);
+                if (!valueResult.HasProgress(valueIndex) || valueResult.ExpressionBlock == null)
                 {
-                    serrors.Add(new SyntaxErrorData(i, 1, "Case value expected"));
-                    return index;
+                    errors.Add(new SyntaxErrorData(valueIndex, 1, "Case value expected"));
+                    return ParseBlockResult.NoAdvance(index);
                 }
 
-                pars.Add(part2);
-                childNodes.Add(part2Node);
-                i = SkipSpace(exp, i2);
-            } while (true);
+                parameters.Add(valueResult.ExpressionBlock);
+                currentIndex = valueResult.NextIndex;
+            }
 
-            prog = new FunctionCallExpression
+            var functionCall = new FunctionCallExpression
             {
-                Function = new LiteralBlock(context.Get(KW_CASE)),
+                Function = new LiteralBlock(context.Provider.Get(KW_CASE)),
                 Pos = index,
-                Length = i - index,
-                Parameters = pars.ToArray(),
+                Length = currentIndex - index,
+                Parameters = parameters.ToArray()
             };
-            parseNode = new ParseNode(ParseNodeType.Case, index, i - index);
-            parseNode.Childs = childNodes;
-            return i;
+
+            var parseNode = new ParseNode(ParseNodeType.Case, index, currentIndex - index, childNodes);
+
+            siblings?.Add(parseNode);
+
+            return new ParseBlockResult(currentIndex, functionCall, parseNode);
         }
     }
 }

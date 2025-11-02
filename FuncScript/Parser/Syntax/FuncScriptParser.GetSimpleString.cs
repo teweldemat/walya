@@ -7,10 +7,34 @@ namespace FuncScript.Core
         static int GetSimpleString(string exp, int index, out String str, out ParseNode pareNode,
             List<SyntaxErrorData> serrors)
         {
-            var i = GetSimpleString(exp, "\"", index, out str, out pareNode, serrors);
-            if (i > index)
-                return i;
-            return GetSimpleString(exp, "'", index, out str, out pareNode, serrors);
+            pareNode = null;
+            str = null;
+
+            if (index >= exp.Length)
+                return index;
+
+            var currentIndex = SkipSpace(exp, index);
+            if (currentIndex >= exp.Length)
+                return index;
+
+            var i = GetSimpleString(exp, "\"", currentIndex, out str, out pareNode, serrors);
+            if (i == currentIndex)
+                i = GetSimpleString(exp, "'", currentIndex, out str, out pareNode, serrors);
+
+            if (i == currentIndex)
+            {
+                str = null;
+                pareNode = null;
+                return index;
+            }
+
+            if (pareNode != null)
+            {
+                pareNode.Pos = currentIndex;
+                pareNode.Length = i - currentIndex;
+            }
+
+            return i;
         }
 
         static int GetSimpleString(string exp, string delimator, int index, out String str, out ParseNode parseNode,

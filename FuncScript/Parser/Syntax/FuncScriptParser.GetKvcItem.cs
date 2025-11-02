@@ -1,72 +1,79 @@
+using System;
+using System.Collections.Generic;
 using FuncScript.Block;
 
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetKvcItem(IFsDataProvider context, bool nakedKvc, String exp, int index,
-            out KvcExpression.KeyValueExpression item,
-            out ParseNode parseNode)
+        static ValueParseResult<KvcExpression.KeyValueExpression> GetKvcItem(ParseContext context,
+            IList<ParseNode> siblings, bool nakedKvc, int index)
         {
-            item = null;
-            var e1 = new List<SyntaxErrorData>();
-            var i = GetKeyValuePair(context, exp, index, out item, out parseNode, e1);
-            if (i > index)
-                return i;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
 
-            var e2 = new List<SyntaxErrorData>();
-            i = GetReturnDefinition(context, exp, index, out var retExp, out var nodeRetExp, e2);
-            if (i > index)
+            var exp = context.Expression;
+
+            var keyValueResult = GetKeyValuePair(context, siblings, index);
+            if (keyValueResult.HasProgress(index))
+                return new ValueParseResult<KvcExpression.KeyValueExpression>(keyValueResult.NextIndex,
+                    keyValueResult.Value, keyValueResult.ParseNode);
+
+            var returnResult = GetReturnDefinition(context, siblings, index);
+            if (returnResult.HasProgress(index) && returnResult.ExpressionBlock != null)
             {
-                item = new KvcExpression.KeyValueExpression
+                var item = new KvcExpression.KeyValueExpression
                 {
                     Key = null,
-                    ValueExpression = retExp
+                    ValueExpression = returnResult.ExpressionBlock
                 };
-                parseNode = nodeRetExp;
-                return i;
+                return new ValueParseResult<KvcExpression.KeyValueExpression>(returnResult.NextIndex, item,
+                    returnResult.ParseNode);
             }
 
             if (!nakedKvc)
             {
-                i = GetIdentifier(exp, index, out var iden, out var idenLower, out var nodeIden);
-
-                if (i > index)
+                var identifierIndex = GetIdentifier(exp, index, out var iden, out var idenLower, out var nodeIden);
+                if (identifierIndex > index)
                 {
-                    item = new KvcExpression.KeyValueExpression
+                    var reference = new ReferenceBlock(iden, idenLower, false)
+                    {
+                        Pos = index,
+                        Length = identifierIndex - index
+                    };
+                    var item = new KvcExpression.KeyValueExpression
                     {
                         Key = iden,
                         KeyLower = idenLower,
-                        ValueExpression = new ReferenceBlock(iden, idenLower, false)
-                        {
-                            Pos = index,
-                            Length = i - index
-                        }
+                        ValueExpression = reference
                     };
-                    parseNode = nodeIden;
-                    return i;
+                    if (nodeIden != null)
+                        siblings?.Add(nodeIden);
+                    return new ValueParseResult<KvcExpression.KeyValueExpression>(identifierIndex, item, nodeIden);
                 }
 
-                var e3 = new List<SyntaxErrorData>();
-                i = GetSimpleString(exp, index, out iden, out nodeIden, e3);
-                if (i > index)
+                var stringErrors = new List<SyntaxErrorData>();
+                var stringIndex = GetSimpleString(exp, index, out var stringIden, out var nodeStringIden, stringErrors);
+                if (stringIndex > index)
                 {
-                    item = new KvcExpression.KeyValueExpression
+                    var reference = new ReferenceBlock(stringIden, stringIden.ToLowerInvariant(), false)
                     {
-                        Key = iden,
-                        KeyLower = idenLower,
-                        ValueExpression = new ReferenceBlock(iden, iden.ToLower(), false)
-                        {
-                            Pos = index,
-                            Length = i - index
-                        }
+                        Pos = index,
+                        Length = stringIndex - index
                     };
-                    parseNode = nodeIden;
-                    return i;
+                    var item = new KvcExpression.KeyValueExpression
+                    {
+                        Key = stringIden,
+                        KeyLower = stringIden.ToLowerInvariant(),
+                        ValueExpression = reference
+                    };
+                    if (nodeStringIden != null)
+                        siblings?.Add(nodeStringIden);
+                    return new ValueParseResult<KvcExpression.KeyValueExpression>(stringIndex, item, nodeStringIden);
                 }
             }
 
-            return index;
+            return new ValueParseResult<KvcExpression.KeyValueExpression>(index, null, null);
         }
     }
 }

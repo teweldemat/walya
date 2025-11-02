@@ -1,25 +1,11 @@
+using System;
+using System.Collections.Generic;
+
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        /// <summary>
-        /// Checks if any provided keywords are present in the input string, starting from the specified index.
-        /// </summary>
-        /// <param name="exp">The input string to search for keywords.</param>
-        /// <param name="index">The starting index to search for keywords.</param>
-        /// <param name="keyWord">Keywords to search for within the input string.</param>
-        /// <returns>The index after the end of the matched keyword if found, or the same `index` if no match is found.</returns>
-        /// <exception cref="ArgumentNullException">Thrown when the input expression is null.</exception>
-        /// <remarks>
-        /// This method uses a nested for loop for character comparison, providing better performance.
-        /// </remarks>
-        private static int lm_count = 0;
         static public int GetLiteralMatch(string exp, int index, params string[] keyWord)
-        {
-            return GetLiteralMatch(exp, index, keyWord, out var matched);
-        }
-
-        static public int GetLiteralMatch(string exp, int index, string[] keyWord, out string matched)
         {
             if (exp == null)
             {
@@ -42,14 +28,51 @@ namespace FuncScript.Core
 
                     if (matchFound)
                     {
-                        matched = k.ToLowerInvariant();
                         return index + k.Length;
                     }
                 }
             }
-
-            matched = null;
             return index;
+        }
+
+        static int GetToken(string exp, int index, IList<ParseNode> siblings, ParseNodeType nodeType,
+             params string[] tokens)
+        {
+            var node = new ParseNode(nodeType);
+
+            if (exp == null)
+                throw new ArgumentNullException(nameof(exp));
+            if (tokens == null || tokens.Length == 0)
+                throw new ArgumentException("At least one token must be provided.", nameof(tokens));
+
+            var searchIndex = SkipSpace(exp, index);
+            var nextIndex = GetLiteralMatch(exp, searchIndex, tokens);
+            if (nextIndex == searchIndex)
+            {
+                return index;
+            }
+
+            node.Pos = searchIndex;
+            node.Length = nextIndex - searchIndex;
+            
+            siblings.Add(node);
+            return nextIndex;
+        }
+
+        static int GetWhitespaceToken(string exp,IList<ParseNode> siblings,  int index)
+        {
+
+            var nextIndex = index;
+            while (index < exp.Length && isCharWhiteSpace(exp[index]))
+            {
+                nextIndex++;
+            }
+
+            if (nextIndex > index)
+            {
+                siblings.Add(new ParseNode(ParseNodeType.WhiteSpace,index,nextIndex-index));
+            }
+            return nextIndex;
         }
     }
 }

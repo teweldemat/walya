@@ -1,49 +1,60 @@
+using System;
+using System.Collections.Generic;
 using FuncScript.Block;
 
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetKeyValuePair(IFsDataProvider context, string exp, int index,
-            out KvcExpression.KeyValueExpression keyValue, out ParseNode parseNode, List<SyntaxErrorData> serrors)
+        static ValueParseResult<KvcExpression.KeyValueExpression> GetKeyValuePair(ParseContext context,
+            IList<ParseNode> siblings, int index)
         {
-            parseNode = null;
-            keyValue = null;
-            string name;
-            var i = GetSimpleString(exp, index, out name, out var nodeNeme, new List<SyntaxErrorData>());
-            if (i == index)
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            var exp = context.Expression;
+            var errors = context.ErrorsList;
+
+            var keyErrors = new List<SyntaxErrorData>();
+            var currentIndex = GetSimpleString(exp, index, out var name, out var nameNode, keyErrors);
+            if (currentIndex == index)
             {
-                i = GetIdentifier(exp, index, out name, out var nameLower, out nodeNeme);
-                if (i == index)
-                    return index;
+                var iden=GetIdentifier(context,siblings, index);
+                currentIndex = iden.NextIndex;
+                if (currentIndex == index)
+                    return new ValueParseResult<KvcExpression.KeyValueExpression>(index, null, null);
             }
 
-            i = SkipSpace(exp, i);
+            var afterColon = GetToken(exp, currentIndex,siblings,ParseNodeType.Colon, ":");
+            if (afterColon == currentIndex)
+                return new ValueParseResult<KvcExpression.KeyValueExpression>(index, null, null);
 
-            var i2 = GetLiteralMatch(exp, i, ":");
-            if (i2 == i)
-                return index;
+            currentIndex = afterColon;
+            if (nameNode != null)
+                nameNode.NodeType = ParseNodeType.Key;
 
-            i = i2;
+            var childNodes = new List<ParseNode>();
+            if (nameNode != null)
+                childNodes.Add(nameNode);
 
-            i = SkipSpace(exp, i);
-            i2 = GetExpression(context, exp, i, out var expBlock, out var nodeExpBlock, serrors);
-            if (i2 == i)
+            var valueResult = GetExpression(context, childNodes, currentIndex);
+            if (!valueResult.HasProgress(currentIndex) || valueResult.ExpressionBlock == null)
             {
-                serrors.Add(new SyntaxErrorData(i, 0, "value expression expected"));
-                return index;
+                errors.Add(new SyntaxErrorData(currentIndex, 0, "value expression expected"));
+                return new ValueParseResult<KvcExpression.KeyValueExpression>(index, null, null);
             }
 
-            i = i2;
-            i = SkipSpace(exp, i);
-            keyValue = new KvcExpression.KeyValueExpression
+            currentIndex = valueResult.NextIndex;
+
+            var keyValue = new KvcExpression.KeyValueExpression
             {
                 Key = name,
-                ValueExpression = expBlock
+                ValueExpression = valueResult.ExpressionBlock
             };
-            nodeNeme.NodeType = ParseNodeType.Key;
-            parseNode = new ParseNode(ParseNodeType.KeyValuePair, index, i - index, new[] { nodeNeme, nodeExpBlock });
-            return i;
+
+            var parseNode = new ParseNode(ParseNodeType.KeyValuePair, index, currentIndex - index, childNodes);
+            siblings?.Add(parseNode);
+            return new ValueParseResult<KvcExpression.KeyValueExpression>(currentIndex, keyValue, parseNode);
         }
     }
 }

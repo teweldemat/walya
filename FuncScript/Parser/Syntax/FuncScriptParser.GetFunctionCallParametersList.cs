@@ -1,85 +1,94 @@
-using FuncScript.Model;
+using System;
 using System.Collections.Generic;
 using FuncScript.Block;
+using FuncScript.Model;
 
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetFunctionCallParametersList(IFsDataProvider context, ExpressionBlock func, String exp, int index,
-            out ExpressionBlock prog, out ParseNode parseNode, List<SyntaxErrorData> serrors)
+        static ParseBlockResult GetFunctionCallParametersList(ParseContext context, IList<ParseNode> siblings,
+            ExpressionBlock function, int index)
         {
-            var i = GetFunctionCallParametersList(context, "(", ")", func, exp, index, out prog, out parseNode,
-                serrors);
-            if (i == index)
-                return GetFunctionCallParametersList(context, "[", "]", func, exp, index, out prog, out parseNode,
-                    serrors);
-            return i;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            var roundResult = GetFunctionCallParametersList(context, siblings, "(", ")", function, index);
+            if (roundResult.HasProgress(index))
+                return roundResult;
+
+            return GetFunctionCallParametersList(context, siblings, "[", "]", function, index);
         }
 
-        static int GetFunctionCallParametersList(IFsDataProvider context, String openBrance, String closeBrance,
-            ExpressionBlock func, String exp, int index, out ExpressionBlock prog, out ParseNode parseNode,
-            List<SyntaxErrorData> serrors)
+        static ParseBlockResult GetFunctionCallParametersList(ParseContext context, IList<ParseNode> siblings,
+            string openBrace, string closeBrace, ExpressionBlock function, int index)
         {
-            parseNode = null;
-            prog = null;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+            if (function == null)
+                throw new ArgumentNullException(nameof(function));
 
-            //make sure we have open brace
-            var i = SkipSpace(exp, index);
-            var i2 = GetLiteralMatch(exp, i, openBrance);
-            if (i == i2)
-                return index; //we didn't find '('
-            i = i2;
-            var pars = new List<ExpressionBlock>();
-            var parseNodes = new List<ParseNode>();
-            //lets get first parameter
-            i = SkipSpace(exp, i);
-            i2 = GetExpression(context, exp, i, out var par1, out var parseNode1, serrors);
-            if (i2 > i)
+            var errors = context.ErrorsList;
+            var exp = context.Expression;
+
+            var afterOpen = GetToken(exp, index,siblings,ParseNodeType.OpenBrace, openBrace);
+            if (afterOpen == index)
+                return ParseBlockResult.NoAdvance(index);
+
+            var currentIndex = afterOpen;
+
+            var parameters = new List<ExpressionBlock>();
+            var parameterNodes = new List<ParseNode>();
+
+            var parameterIndex = currentIndex;
+            var parameterResult = GetExpression(context, parameterNodes, parameterIndex);
+            if (parameterResult.HasProgress(parameterIndex) && parameterResult.ExpressionBlock != null)
             {
-                i = i2;
-                pars.Add(par1);
-                parseNodes.Add(parseNode1);
-                do
+                parameters.Add(parameterResult.ExpressionBlock);
+                currentIndex = parameterResult.NextIndex;
+
+                while (true)
                 {
-                    i2 = SkipSpace(exp, i);
-                    if (i2 >= exp.Length || exp[i2++] != ',') //stop collection of paramters if there is no ','
+                    var afterComma = GetToken(exp, currentIndex,siblings,ParseNodeType.ListSeparator, ",");
+                    if (afterComma == currentIndex)
                         break;
-                    i = i2;
-                    i = SkipSpace(exp, i);
-                    i2 = GetExpression(context, exp, i, out var par2, out var parseNode2, serrors);
-                    if (i2 == i)
+
+                    var nextParameterIndex = afterComma;
+                    var nextParameter = GetExpression(context, parameterNodes, nextParameterIndex);
+                    if (!nextParameter.HasProgress(nextParameterIndex) || nextParameter.ExpressionBlock == null)
                     {
-                        serrors.Add(new SyntaxErrorData(i, 0, "Parameter for call expected"));
-                        return index;
+                        errors.Add(new SyntaxErrorData(nextParameterIndex, 0, "Parameter for call expected"));
+                        return ParseBlockResult.NoAdvance(index);
                     }
 
-                    i = i2;
-                    pars.Add(par2);
-                    parseNodes.Add(parseNode2);
-                } while (true);
+                    parameters.Add(nextParameter.ExpressionBlock);
+                    currentIndex = nextParameter.NextIndex;
+                }
             }
 
-            i = SkipSpace(exp, i);
-            i2 = GetLiteralMatch(exp, i, closeBrance);
-            if (i2 == i)
+            var afterClose = GetToken(exp, currentIndex,siblings,ParseNodeType.CloseBrance, closeBrace);
+            if (afterClose == currentIndex)
             {
-                serrors.Add(new SyntaxErrorData(i, 0, $"'{closeBrance}' expected"));
-                return index;
+                errors.Add(new SyntaxErrorData(currentIndex, 0, $"'{closeBrace}' expected"));
+                return ParseBlockResult.NoAdvance(index);
             }
 
-            i = i2;
+            currentIndex = afterClose;
 
-
-            prog = new FunctionCallExpression
+            var callExpression = new FunctionCallExpression
             {
-                Function = func,
-                Parameters = pars.ToArray(),
-                Pos = func.Pos,
-                Length = i - func.Pos,
+                Function = function,
+                Parameters = parameters.ToArray(),
+                Pos = function.Pos,
+                Length = currentIndex - function.Pos
             };
-            parseNode = new ParseNode(ParseNodeType.FunctionParameterList, index, i - index, parseNodes);
-            return i;
+
+            var parseNode = new ParseNode(ParseNodeType.FunctionParameterList, index, currentIndex - index,
+                parameterNodes);
+
+            siblings?.Add(parseNode);
+
+            return new ParseBlockResult(currentIndex, callExpression, parseNode);
         }
     }
 }

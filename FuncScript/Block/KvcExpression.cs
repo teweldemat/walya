@@ -81,9 +81,7 @@ namespace FuncScript.Block
 
         
 
-        public String SetKeyValues(IList<KeyValueExpression> kv, ExpressionBlock retExpression,
-            IList<ConnectionExpression> datConns,
-            IList<ConnectionExpression> sigConns)
+        public String SetKeyValues(IList<KeyValueExpression> kv, ExpressionBlock retExpression)
         {
             _keyValues = kv;
             this.singleReturn = retExpression;

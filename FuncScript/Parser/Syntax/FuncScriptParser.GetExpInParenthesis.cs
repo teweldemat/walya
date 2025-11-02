@@ -1,40 +1,53 @@
+using System;
+using System.Collections.Generic;
 using FuncScript.Block;
 
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetExpInParenthesis(IFsDataProvider infixFuncProvider, String exp, int index,
-            out ExpressionBlock expression, out ParseNode parseNode, List<SyntaxErrorData> serrors)
+        static ParseBlockResult GetExpInParenthesis(ParseContext context, IList<ParseNode> siblings, int index)
         {
-            parseNode = null;
-            expression = null;
-            var i = index;
-            i = SkipSpace(exp, i);
-            var i2 = GetLiteralMatch(exp, i, "(");
-            if (i == i2)
-                return index;
-            i = i2;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
 
-            i = SkipSpace(exp, i);
-            i2 = GetExpression(infixFuncProvider, exp, i, out expression, out var nodeExpression, serrors);
-            if (i2 == i)
-                expression = null;
-            else
-                i = i2;
-            i = SkipSpace(exp, i);
-            i2 = GetLiteralMatch(exp, i, ")");
-            if (i == i2)
+            var errors = context.ErrorsList;
+            var exp = context.Expression;
+
+            var currentIndex = index;
+            var afterOpen = GetToken(exp, currentIndex,siblings,ParseNodeType.OpenBrace, "(");
+            if (afterOpen == currentIndex)
+                return ParseBlockResult.NoAdvance(index);
+
+            currentIndex = afterOpen;
+            var childNodes = new List<ParseNode>();
+            var expressionResult = GetExpression(context, childNodes, currentIndex);
+            ExpressionBlock expressionBlock = null;
+            ParseNode expressionNode = null;
+            if (expressionResult.HasProgress(currentIndex))
             {
-                serrors.Add(new SyntaxErrorData(i, 0, "')' expected"));
-                return index;
+                expressionBlock = expressionResult.ExpressionBlock;
+                expressionNode = expressionResult.ParseNode;
+                currentIndex = expressionResult.NextIndex;
             }
 
-            i = i2;
-            if (expression == null)
-                expression = new NullExpressionBlock();
-            parseNode = new ParseNode(ParseNodeType.ExpressionInBrace, index, i - index, new[] { nodeExpression });
-            return i;
+            var afterClose = GetToken(exp, currentIndex,siblings,ParseNodeType.CloseBrance, ")");
+            if (afterClose == currentIndex)
+            {
+                errors.Add(new SyntaxErrorData(currentIndex, 0, "')' expected"));
+                return ParseBlockResult.NoAdvance(index);
+            }
+
+            currentIndex = afterClose;
+
+            expressionBlock ??= new NullExpressionBlock();
+
+            var parseNode = new ParseNode(ParseNodeType.ExpressionInBrace, index, currentIndex - index,
+                expressionNode != null ? childNodes : Array.Empty<ParseNode>());
+
+            siblings?.Add(parseNode);
+
+            return new ParseBlockResult(currentIndex, expressionBlock, parseNode);
         }
     }
 }

@@ -1,62 +1,70 @@
+using System;
+using System.Collections.Generic;
 using FuncScript.Block;
-using FuncScript.Functions.Math;
 
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetPrefixOperator(IFsDataProvider parseContext, string exp, int index, out ExpressionBlock prog,
-            out ParseNode parseNode, List<SyntaxErrorData> serrors)
+        static ParseBlockResult GetPrefixOperator(ParseContext context, IList<ParseNode> siblings, int index)
         {
-            int i = 0;
-            string oper = null;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            var errors = context.ErrorsList;
+            var exp = context.Expression;
+
+            string matchedSymbol = null;
+            string functionName = null;
+            var currentIndex = index;
             foreach (var op in s_prefixOp)
             {
-                i = GetLiteralMatch(exp, index, op[0]);
-                if (i > index)
+                var nextIndex = GetToken(exp, index,siblings,ParseNodeType.Operator,op[0]);
+                if (nextIndex > index)
                 {
-                    oper = op[1];
+                    matchedSymbol = op[0];
+                    functionName = op[1];
+                    currentIndex = nextIndex;
                     break;
                 }
             }
 
-            if (i == index)
+            if (matchedSymbol == null)
+                return ParseBlockResult.NoAdvance(index);
+
+            var function = context.Provider.Get(functionName);
+            if (function == null)
             {
-                prog = null;
-                parseNode = null;
-                return index;
+                errors.Add(new SyntaxErrorData(index, currentIndex - index,
+                    $"Prefix operator {functionName} not defined"));
+                return ParseBlockResult.NoAdvance(index);
             }
 
-            i = SkipSpace(exp, i);
-            var func = parseContext.Get(oper);
-            if (func == null)
+            var childNodes = new List<ParseNode>();
+            var operandResult = GetCallAndMemberAccess(context, childNodes, currentIndex);
+            if (!operandResult.HasProgress(currentIndex) || operandResult.ExpressionBlock == null)
             {
-                serrors.Add(new SyntaxErrorData(index, i - index, $"Prefix operator {oper} not defined"));
-                prog = null;
-                parseNode = null;
-                return index;
+                errors.Add(new SyntaxErrorData(currentIndex, 0,
+                    $"Operant for {functionName} expected"));
+                return ParseBlockResult.NoAdvance(index);
             }
 
-            var i2 = GetCallAndMemberAccess(parseContext, exp, i, out var operand, out var operandNode, serrors);
-            if (i2 == i)
-            {
-                serrors.Add(new SyntaxErrorData(i, 0, $"Operant for {oper} expected"));
-                prog = null;
-                parseNode = null;
-                return index;
-            }
+            currentIndex = operandResult.NextIndex;
 
-            i = SkipSpace(exp, i2);
-
-            prog = new FunctionCallExpression
+            var expression = new FunctionCallExpression
             {
-                Function = new LiteralBlock(func),
-                Parameters = new[] { operand },
+                Function = new LiteralBlock(function),
+                Parameters = new[] { operandResult.ExpressionBlock },
                 Pos = index,
-                Length = i - index,
+                Length = currentIndex - index
             };
-            parseNode = new ParseNode(ParseNodeType.PrefixOperatorExpression, index, i - index);
-            return i;
+
+            var parseNode = new ParseNode(ParseNodeType.PrefixOperatorExpression, index, currentIndex - index,
+                childNodes);
+
+            siblings?.Add(parseNode);
+
+            return new ParseBlockResult(currentIndex, expression, parseNode);
         }
     }
 }

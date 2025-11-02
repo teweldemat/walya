@@ -1,62 +1,84 @@
+using System;
+using System.Collections.Generic;
 using FuncScript.Block;
 
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetCallAndMemberAccess(IFsDataProvider parseContext, String exp, int index, out ExpressionBlock prog,
-            out ParseNode parseNode, List<SyntaxErrorData> serrors)
+        static ParseBlockResult GetCallAndMemberAccess(ParseContext context, IList<ParseNode> siblings, int index)
         {
-            parseNode = null;
-            prog = null;
-            var i1 = SkipSpace(exp, index);
-            var i = GetUnit(parseContext, exp, i1, out var theUnit, out parseNode, serrors);
-            if (i == index)
-                return index;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
 
-            do
+            var exp = context.Expression;
+
+            var currentIndex = index;
+            var unitNodes = new List<ParseNode>();
+            var unitResult = GetUnit(context, unitNodes, currentIndex);
+            if (!unitResult.HasProgress(currentIndex) || unitResult.ExpressionBlock == null)
+                return ParseBlockResult.NoAdvance(index);
+
+            var expression = unitResult.ExpressionBlock;
+            var currentNode = unitResult.ParseNode;
+            currentIndex = unitResult.NextIndex;
+
+            while (true)
             {
-                //lets see if this is part of a function call
-                var i2 = GetFunctionCallParametersList(parseContext, theUnit, exp, i, out var funcCall,
-                    out var nodeParList, serrors);
-                if (i2 > i)
+                var callChildren = new List<ParseNode>();
+                if (currentNode != null)
+                    callChildren.Add(currentNode);
+                var callResult = GetFunctionCallParametersList(context, callChildren, expression, currentIndex);
+                if (callResult.HasProgress(currentIndex) && callResult.ExpressionBlock != null)
                 {
-                    i = i2;
-                    theUnit = funcCall;
-                    parseNode = new ParseNode(ParseNodeType.FunctionCall, index, i - index,
-                        new[] { parseNode, nodeParList });
+                    expression = callResult.ExpressionBlock;
+                    currentNode = new ParseNode(ParseNodeType.FunctionCall, index, callResult.NextIndex - index,
+                        callChildren);
+                    currentIndex = callResult.NextIndex;
                     continue;
                 }
 
-                i2 = GetMemberAccess(parseContext, theUnit, exp, i, out var memberAccess, out var nodeMemberAccess,
-                    serrors);
-                if (i2 > i)
+                var memberChildren = new List<ParseNode>();
+                if (currentNode != null)
+                    memberChildren.Add(currentNode);
+                var memberResult = GetMemberAccess(context, memberChildren, expression, currentIndex);
+                if (memberResult.HasProgress(currentIndex) && memberResult.ExpressionBlock != null)
                 {
-                    i = i2;
-                    theUnit = memberAccess;
-                    parseNode = new ParseNode(ParseNodeType.MemberAccess, index, i - index,
-                        new[] { parseNode, nodeMemberAccess });
+                    expression = memberResult.ExpressionBlock;
+                    currentNode = new ParseNode(ParseNodeType.MemberAccess, index, memberResult.NextIndex - index,
+                        memberChildren);
+                    currentIndex = memberResult.NextIndex;
                     continue;
                 }
 
-                i2 = GetKvcExpression(parseContext, false, exp, i, out var kvc, out var nodeKvc, serrors);
-                if (i2 > i)
+                var selectorChildren = new List<ParseNode>();
+                if (currentNode != null)
+                    selectorChildren.Add(currentNode);
+                var selectorResult = GetKvcExpression(context, selectorChildren, false, currentIndex);
+                if (selectorResult.HasProgress(currentIndex) && selectorResult.Value != null)
                 {
-                    i = i2;
-                    theUnit = new SelectorExpression
+                    var selector = new SelectorExpression
                     {
-                        Source = theUnit,
-                        Selector = kvc,
-                        Pos = i,
-                        Length = i2 - i
+                        Source = expression,
+                        Selector = selectorResult.Value,
+                        Pos = currentIndex,
+                        Length = selectorResult.NextIndex - currentIndex
                     };
-                    parseNode = new ParseNode(ParseNodeType.Selection, index, i - index, new[] { parseNode, nodeKvc });
+
+                    expression = selector;
+                    currentNode = new ParseNode(ParseNodeType.Selection, index, selectorResult.NextIndex - index,
+                        selectorChildren);
+                    currentIndex = selectorResult.NextIndex;
                     continue;
                 }
 
-                prog = theUnit;
-                return i;
-            } while (true);
+                break;
+            }
+
+            if (currentNode != null)
+                siblings?.Add(currentNode);
+
+            return new ParseBlockResult(currentIndex, expression, currentNode);
         }
     }
 }

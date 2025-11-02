@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using FuncScript.Block;
 
@@ -5,47 +6,51 @@ namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetIfThenElseExpression(IFsDataProvider context, string exp, int index, out ExpressionBlock prog,
-            out ParseNode parseNode, List<SyntaxErrorData> serrors)
+        static ParseBlockResult GetIfThenElseExpression(ParseContext context, IList<ParseNode> siblings, int index)
         {
-            prog = null;
-            parseNode = null;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            var errors = context.ErrorsList;
+            var exp = context.Expression;
 
             if (index >= exp.Length)
-                return index;
+                return ParseBlockResult.NoAdvance(index);
 
-            var afterIf = GetLiteralMatch(exp, index, "if");
-            if (afterIf == index)
-                return index;
+            var keywordNodes = new List<ParseNode>();
+            var afterIf = GetKeyWord(context, keywordNodes, index, "if");
+            if (afterIf==index)
+                return ParseBlockResult.NoAdvance(index);
 
-            if (afterIf < exp.Length && IsIdentfierOtherChar(exp[afterIf]))
-                return index;
 
             if (afterIf < exp.Length && !isCharWhiteSpace(exp[afterIf]))
-                return index;
+                return ParseBlockResult.NoAdvance(index);
 
-            var conditionStart = SkipSpace(exp, afterIf);
+            var conditionStart = SkipWhitespaceAndComments(exp, afterIf);
             if (conditionStart >= exp.Length)
-                return index;
+                return ParseBlockResult.NoAdvance(index);
 
             if (!TrySplitIfThenElseSegments(exp, conditionStart, out var conditionSegment, out var trueSegment,
                     out var falseStart, out var thenIndex, out var elseIndex))
             {
-                return index;
+                return ParseBlockResult.NoAdvance(index);
             }
 
             // parse condition segment
             var conditionTextLength = conditionSegment.end - conditionSegment.start;
             if (conditionTextLength <= 0)
-                return index;
+                return ParseBlockResult.NoAdvance(index);
 
             var conditionErrors = new List<SyntaxErrorData>();
-            var conditionExpr = Parse(context, exp.Substring(conditionSegment.start, conditionTextLength),
-                out var conditionNode, conditionErrors);
+            var conditionContext = context.CreateChild(exp.Substring(conditionSegment.start, conditionTextLength),
+                conditionErrors);
+            var conditionResult = Parse(conditionContext);
+            var conditionExpr = conditionResult.ExpressionBlock;
+            var conditionNode = conditionResult.ParseNode;
             if (conditionExpr == null || conditionErrors.Count > 0)
             {
-                AddErrorsWithOffset(serrors, conditionErrors, conditionSegment.start);
-                return index;
+                AddErrorsWithOffset(errors, conditionErrors, conditionSegment.start);
+                return ParseBlockResult.NoAdvance(index);
             }
             OffsetParseNode(conditionNode, conditionSegment.start);
             conditionExpr.Pos = conditionSegment.start;
@@ -54,15 +59,17 @@ namespace FuncScript.Core
             // parse true segment
             var trueTextLength = trueSegment.end - trueSegment.start;
             if (trueTextLength <= 0)
-                return index;
+                return ParseBlockResult.NoAdvance(index);
 
             var trueErrors = new List<SyntaxErrorData>();
-            var trueExpr = Parse(context, exp.Substring(trueSegment.start, trueTextLength), out var trueNode,
-                trueErrors);
+            var trueContext = context.CreateChild(exp.Substring(trueSegment.start, trueTextLength), trueErrors);
+            var trueResult = Parse(trueContext);
+            var trueExpr = trueResult.ExpressionBlock;
+            var trueNode = trueResult.ParseNode;
             if (trueExpr == null || trueErrors.Count > 0)
             {
-                AddErrorsWithOffset(serrors, trueErrors, trueSegment.start);
-                return index;
+                AddErrorsWithOffset(errors, trueErrors, trueSegment.start);
+                return ParseBlockResult.NoAdvance(index);
             }
             OffsetParseNode(trueNode, trueSegment.start);
             trueExpr.Pos = trueSegment.start;
@@ -70,18 +77,22 @@ namespace FuncScript.Core
 
             // parse false segment using main expression parser to determine remaining length
             var falseErrors = new List<SyntaxErrorData>();
-            var falseConsumed = GetExpression(context, exp, falseStart, out var falseExpr, out var falseNode,
-                falseErrors);
-            if (falseConsumed == falseStart)
+            var falseContext = context.CreateChild(exp, falseErrors);
+            var falseResult = GetExpression(falseContext, new List<ParseNode>(), falseStart);
+            if (!falseResult.HasProgress(falseStart) || falseResult.ExpressionBlock == null)
             {
-                AddErrorsWithOffset(serrors, falseErrors, 0);
-                return index;
+                AddErrorsWithOffset(errors, falseErrors, 0);
+                return ParseBlockResult.NoAdvance(index);
             }
             if (falseErrors.Count > 0)
             {
-                AddErrorsWithOffset(serrors, falseErrors, 0);
-                return index;
+                AddErrorsWithOffset(errors, falseErrors, 0);
+                return ParseBlockResult.NoAdvance(index);
             }
+
+            var falseExpr = falseResult.ExpressionBlock;
+            var falseNode = falseResult.ParseNode;
+            var falseConsumed = falseResult.NextIndex;
 
             falseExpr.Pos = falseStart;
             falseExpr.Length = falseConsumed - falseStart;
@@ -92,7 +103,7 @@ namespace FuncScript.Core
                 Length = afterIf - index
             };
 
-            prog = new FunctionCallExpression
+            var functionCall = new FunctionCallExpression
             {
                 Function = functionBlock,
                 Parameters = new[] { conditionExpr, trueExpr, falseExpr },
@@ -101,14 +112,6 @@ namespace FuncScript.Core
             };
 
             var identifierNode = new ParseNode(ParseNodeType.Identifier, index, afterIf - index);
-
-            var parameterChildren = new List<ParseNode>();
-            if (conditionNode != null)
-                parameterChildren.Add(conditionNode);
-            if (trueNode != null)
-                parameterChildren.Add(trueNode);
-            if (falseNode != null)
-                parameterChildren.Add(falseNode);
 
             var paramsStart = conditionExpr.Pos;
             var paramsEnd = falseExpr.Pos + falseExpr.Length;
@@ -129,10 +132,12 @@ namespace FuncScript.Core
             var parametersNode = new ParseNode(ParseNodeType.FunctionParameterList, paramsStart,
                 paramsEnd - paramsStart, parametersChildren);
 
-            parseNode = new ParseNode(ParseNodeType.FunctionCall, index, falseConsumed - index,
+            var functionCallNode = new ParseNode(ParseNodeType.FunctionCall, index, falseConsumed - index,
                 new[] { identifierNode, parametersNode });
 
-            return falseConsumed;
+            siblings?.Add(functionCallNode);
+
+            return new ParseBlockResult(falseConsumed, functionCall, functionCallNode);
         }
 
         private static bool TrySplitIfThenElseSegments(string exp, int conditionStart,
@@ -153,7 +158,7 @@ namespace FuncScript.Core
             if (conditionEnd <= conditionStart)
                 return false;
 
-            var trueStart = SkipSpace(exp, thenIndex + 4);
+            var trueStart = SkipWhitespaceAndComments(exp, thenIndex + 4);
             if (trueStart >= exp.Length)
                 return false;
 
@@ -165,7 +170,7 @@ namespace FuncScript.Core
             if (trueEnd <= trueStart)
                 return false;
 
-            falseStart = SkipSpace(exp, elseIndex + 4);
+            falseStart = SkipWhitespaceAndComments(exp, elseIndex + 4);
             if (falseStart > exp.Length)
                 return false;
 
@@ -364,6 +369,28 @@ namespace FuncScript.Core
             while (result > start && isCharWhiteSpace(exp[result - 1]))
                 result--;
             return result;
+        }
+
+        private static int SkipWhitespaceAndComments(string exp, int index)
+        {
+            var i = index;
+            while (i < exp.Length)
+            {
+                while (i < exp.Length && isCharWhiteSpace(exp[i]))
+                    i++;
+
+                if (i < exp.Length - 1 && exp[i] == '/' && exp[i + 1] == '/')
+                {
+                    i += 2;
+                    while (i < exp.Length && exp[i] != '\n')
+                        i++;
+                    continue;
+                }
+
+                break;
+            }
+
+            return i;
         }
 
         private static void OffsetParseNode(ParseNode node, int offset)

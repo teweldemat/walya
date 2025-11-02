@@ -665,7 +665,7 @@ namespace FuncScript
                     exp = FuncScriptParser.Parse(provider, expression, serrors);
                     break;
                 case ParseMode.SpaceSeparatedList:
-                    return FuncScriptParser.ParseSpaceSepratedList(provider, expression, serrors);
+                    return FuncScriptParser.ParseSpaceSeparatedList(provider, expression, serrors);
                 case ParseMode.FsTemplate:
                     exp = FuncScriptParser.ParseFsTemplate(provider, expression, serrors);
                     break;

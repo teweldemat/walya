@@ -157,7 +157,7 @@ namespace FuncScript.Core
             i = i2;
 
             intVal = exp.Substring(index, i - index);
-            parseNode = new ParseNode(ParseNodeType.LiteralInteger, index, index - i);
+            parseNode = new ParseNode(ParseNodeType.LiteralInteger, index, i - index);
             return i;
         }
 

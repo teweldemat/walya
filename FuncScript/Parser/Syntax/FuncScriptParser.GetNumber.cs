@@ -10,7 +10,14 @@ namespace FuncScript.Core
             var hasExp = false;
             var hasLong = false;
             number = null;
-            int i = index;
+            if (index >= exp.Length)
+                return index;
+
+            var currentIndex = SkipSpace(exp, index);
+            if (currentIndex >= exp.Length)
+                return index;
+
+            int i = currentIndex;
             var i2 = GetInt(exp, true, i, out var intDigits, out var nodeDigits);
             if (i2 == i)
                 return index;
@@ -44,15 +51,15 @@ namespace FuncScript.Core
 
             if (hasDecimal) //if it has decimal we treat it as 
             {
-                if (!double.TryParse(exp.Substring(index, i - index), out var dval))
+                if (!double.TryParse(exp.Substring(currentIndex, i - currentIndex), out var dval))
                 {
-                    serros.Add(new SyntaxErrorData(index, i - index,
-                        $"{exp.Substring(index, i - index)} couldn't be parsed as floating point"));
+                    serros.Add(new SyntaxErrorData(currentIndex, i - currentIndex,
+                        $"{exp.Substring(currentIndex, i - currentIndex)} couldn't be parsed as floating point"));
                     return index; //we don't expect this to happen
                 }
 
                 number = dval;
-                parseNode = new ParseNode(ParseNodeType.LiteralDouble, index, i - index);
+                parseNode = new ParseNode(ParseNodeType.LiteralDouble, currentIndex, i - currentIndex);
                 return i;
             }
 
@@ -60,7 +67,7 @@ namespace FuncScript.Core
             {
                 if (!int.TryParse(expDigits, out var e) || e < 0)
                 {
-                    serros.Add(new SyntaxErrorData(index, expDigits == null ? 0 : expDigits.Length,
+                    serros.Add(new SyntaxErrorData(currentIndex, expDigits == null ? 0 : expDigits.Length,
                         $"Invalid exponentional {expDigits}"));
                     return index;
                 }
@@ -68,7 +75,7 @@ namespace FuncScript.Core
                 var maxLng = long.MaxValue.ToString();
                 if (maxLng.Length + 1 < intDigits.Length + e) //check overflow by length
                 {
-                    serros.Add(new SyntaxErrorData(index, expDigits.Length,
+                    serros.Add(new SyntaxErrorData(currentIndex, expDigits.Length,
                         $"Exponential {expDigits} is out of range"));
                     return index;
                 }
@@ -82,27 +89,27 @@ namespace FuncScript.Core
             {
                 if (!long.TryParse(intDigits, out longVal))
                 {
-                    serros.Add(new SyntaxErrorData(index, expDigits.Length,
+                    serros.Add(new SyntaxErrorData(currentIndex, expDigits.Length,
                         $"{intDigits} couldn't be parsed to 64bit integer"));
                     return index;
                 }
 
                 number = longVal;
-                parseNode = new ParseNode(ParseNodeType.LiteralLong, index, i - index);
+                parseNode = new ParseNode(ParseNodeType.LiteralLong, currentIndex, i - currentIndex);
                 return i;
             }
 
             if (int.TryParse(intDigits, out var intVal)) //try parsing as int
             {
                 number = intVal;
-                parseNode = new ParseNode(ParseNodeType.LiteralInteger, index, i - index);
+                parseNode = new ParseNode(ParseNodeType.LiteralInteger, currentIndex, i - currentIndex);
                 return i;
             }
 
             if (long.TryParse(intDigits, out longVal)) //try parsing as long
             {
                 number = longVal;
-                parseNode = new ParseNode(ParseNodeType.LiteralLong, index, i - index);
+                parseNode = new ParseNode(ParseNodeType.LiteralLong, currentIndex, i - currentIndex);
                 return i;
             }
 

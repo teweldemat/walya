@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Text;
 using FuncScript.Block;
 
@@ -5,156 +7,174 @@ namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetStringTemplate(IFsDataProvider provider, string exp, int index, out ExpressionBlock prog,
-            out ParseNode parseNode, List<SyntaxErrorData> serrors)
+        static ParseBlockResult GetStringTemplate(ParseContext context, IList<ParseNode> siblings, int index)
         {
-            var i = GetStringTemplate(provider, "\"", exp, index, out prog, out parseNode, serrors);
-            if (i > index)
-                return i;
-            return GetStringTemplate(provider, "'", exp, index, out prog, out parseNode, serrors);
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            var doubleResult = GetStringTemplate(context, siblings, "\"", index);
+            if (doubleResult.HasProgress(index))
+                return doubleResult;
+
+            return GetStringTemplate(context, siblings, "'", index);
         }
 
-        static int GetStringTemplate(IFsDataProvider provider, String delimator, string exp, int index,
-            out ExpressionBlock prog, out ParseNode parseNode, List<SyntaxErrorData> serrors)
+        static ParseBlockResult GetStringTemplate(ParseContext context, IList<ParseNode> siblings, string delimiter,
+            int index)
         {
-            parseNode = null;
-            prog = null;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+            if (delimiter == null)
+                throw new ArgumentNullException(nameof(delimiter));
+
+            var errors = context.ErrorsList;
+            var exp = context.Expression;
+
+            var templateStart = SkipSpace(exp, index);
+            if (templateStart >= exp.Length)
+                return ParseBlockResult.NoAdvance(index);
+
+            var currentIndex = GetLiteralMatch(exp, templateStart, $"f{delimiter}");
+            if (currentIndex == templateStart)
+                return ParseBlockResult.NoAdvance(index);
+
             var parts = new List<ExpressionBlock>();
             var nodeParts = new List<ParseNode>();
 
+            var literalStart = currentIndex;
+            var buffer = new StringBuilder();
 
-            var i = GetLiteralMatch(exp, index, $"f{delimator}");
-            if (i == index)
-                return index;
-            var lastIndex = i;
-            var sb = new StringBuilder();
-            int i2;
             while (true)
             {
-                i2 = GetLiteralMatch(exp, i, @"\\");
-                if (i2 > i)
+                var afterEscape = GetLiteralMatch(exp, currentIndex, @"\\");
+                if (afterEscape > currentIndex)
                 {
-                    i = i2;
-                    sb.Append('\\');
+                    currentIndex = afterEscape;
+                    buffer.Append('\\');
                     continue;
                 }
 
-                i2 = GetLiteralMatch(exp, i, @"\n");
-                if (i2 > i)
+                afterEscape = GetLiteralMatch(exp, currentIndex, @"\n");
+                if (afterEscape > currentIndex)
                 {
-                    i = i2;
-                    sb.Append('\n');
+                    currentIndex = afterEscape;
+                    buffer.Append('\n');
                     continue;
                 }
 
-                i2 = GetLiteralMatch(exp, i, @"\t");
-                if (i2 > i)
+                afterEscape = GetLiteralMatch(exp, currentIndex, @"\t");
+                if (afterEscape > currentIndex)
                 {
-                    i = i2;
-                    sb.Append('\t');
+                    currentIndex = afterEscape;
+                    buffer.Append('\t');
                     continue;
                 }
 
-                i2 = GetLiteralMatch(exp, i, $@"\{delimator}");
-                if (i2 > i)
+                afterEscape = GetLiteralMatch(exp, currentIndex, $@"\{delimiter}");
+                if (afterEscape > currentIndex)
                 {
-                    i = i2;
-                    sb.Append(delimator);
+                    currentIndex = afterEscape;
+                    buffer.Append(delimiter);
                     continue;
                 }
 
-                i2 = GetLiteralMatch(exp, i, @"\{");
-                if (i2 > i)
+                afterEscape = GetLiteralMatch(exp, currentIndex, @"\{");
+                if (afterEscape > currentIndex)
                 {
-                    i = i2;
-                    sb.Append("{");
+                    currentIndex = afterEscape;
+                    buffer.Append("{");
                     continue;
                 }
 
-                i2 = GetLiteralMatch(exp, i, "{");
-                if (i2 > i)
+                var afterExpressionStart = GetLiteralMatch(exp, currentIndex, "{");
+                if (afterExpressionStart > currentIndex)
                 {
-                    if (sb.Length > 0)
+                    if (buffer.Length > 0)
                     {
-                        parts.Add(new LiteralBlock(sb.ToString()));
-                        nodeParts.Add(new ParseNode(ParseNodeType.LiteralString, lastIndex, i - lastIndex));
-                        sb = new StringBuilder();
+                        parts.Add(new LiteralBlock(buffer.ToString()));
+                        nodeParts.Add(new ParseNode(ParseNodeType.LiteralString, literalStart,
+                            currentIndex - literalStart));
+                        buffer.Clear();
                     }
 
-                    i = i2;
-
-                    i = SkipSpace(exp, i);
-                    i2 = GetExpression(provider, exp, i, out var expr, out var nodeExpr, serrors);
-                    if (i2 == i)
+                    var expressionIndex = afterExpressionStart;
+                    var expressionResult = GetExpression(context, nodeParts, expressionIndex);
+                    if (!expressionResult.HasProgress(expressionIndex) || expressionResult.ExpressionBlock == null)
                     {
-                        serrors.Add(new SyntaxErrorData(i, 0, "expression expected"));
-                        return index;
+                        errors.Add(new SyntaxErrorData(expressionIndex, 0, "expression expected"));
+                        return ParseBlockResult.NoAdvance(index);
                     }
 
-                    parts.Add(expr);
-                    nodeParts.Add(nodeExpr);
-                    i = i2;
-                    i2 = GetLiteralMatch(exp, i, "}");
-                    if (i2 == i)
+                    currentIndex = expressionResult.NextIndex;
+                    parts.Add(expressionResult.ExpressionBlock);
+
+                    var afterExpressionEnd = GetToken(exp, currentIndex,siblings,ParseNodeType.CloseBrance, "}");
+                    if (afterExpressionEnd == currentIndex)
                     {
-                        serrors.Add(new SyntaxErrorData(i, 0, "'}' expected"));
-                        return index;
+                        errors.Add(new SyntaxErrorData(currentIndex, 0, "'}' expected"));
+                        return ParseBlockResult.NoAdvance(index);
                     }
 
-                    i = i2;
-                    lastIndex = i;
+                    currentIndex = afterExpressionEnd;
+                    literalStart = currentIndex;
                     continue;
                 }
 
-                if (i >= exp.Length || GetLiteralMatch(exp, i, delimator) > i)
+                if (currentIndex >= exp.Length || GetLiteralMatch(exp, currentIndex, delimiter) > currentIndex)
                     break;
-                sb.Append(exp[i]);
-                i++;
+
+                buffer.Append(exp[currentIndex]);
+                currentIndex++;
             }
 
-            if (i > lastIndex)
+            if (currentIndex > literalStart)
             {
-                if (sb.Length > 0)
+                if (buffer.Length > 0)
                 {
-                    parts.Add(new LiteralBlock(sb.ToString()));
-                    nodeParts.Add(new ParseNode(ParseNodeType.LiteralString, lastIndex, i - lastIndex));
-                    sb = new StringBuilder();
+                    parts.Add(new LiteralBlock(buffer.ToString()));
+                    nodeParts.Add(new ParseNode(ParseNodeType.LiteralString, literalStart,
+                        currentIndex - literalStart));
+                    buffer.Clear();
                 }
 
-                nodeParts.Add(new ParseNode(ParseNodeType.LiteralString, lastIndex, i - lastIndex));
+                nodeParts.Add(new ParseNode(ParseNodeType.LiteralString, literalStart, currentIndex - literalStart));
             }
 
-            i2 = GetLiteralMatch(exp, i, delimator);
-            if (i2 == i)
+            var afterClose = GetLiteralMatch(exp, currentIndex, delimiter);
+            if (afterClose == currentIndex)
             {
-                serrors.Add(new SyntaxErrorData(i, 0, $"'{delimator}' expected"));
-                return index;
+                errors.Add(new SyntaxErrorData(currentIndex, 0, $"'{delimiter}' expected"));
+                return ParseBlockResult.NoAdvance(index);
             }
 
-            i = i2;
+            currentIndex = afterClose;
 
+            ExpressionBlock expression;
+            ParseNode parseNode;
             if (parts.Count == 0)
             {
-                prog = new LiteralBlock("");
-                parseNode = new ParseNode(ParseNodeType.LiteralString, index, i - index);
+                expression = new LiteralBlock("");
+                parseNode = new ParseNode(ParseNodeType.LiteralString, templateStart, currentIndex - templateStart);
             }
-
-            if (parts.Count == 1)
+            else if (parts.Count == 1)
             {
-                prog = parts[0];
-                parseNode = nodeParts[0];
+                expression = parts[0];
+                parseNode = nodeParts.Count > 0 ? nodeParts[0] : null;
             }
             else
             {
-                prog = new FunctionCallExpression
+                expression = new FunctionCallExpression
                 {
-                    Function = new LiteralBlock(provider.Get("+")),
+                    Function = new LiteralBlock(context.Provider.Get("+")),
                     Parameters = parts.ToArray()
                 };
-                parseNode = new ParseNode(ParseNodeType.StringTemplate, index, i - index, nodeParts);
+                parseNode = new ParseNode(ParseNodeType.StringTemplate, templateStart, currentIndex - templateStart, nodeParts);
             }
 
-            return i;
+            if (parseNode != null)
+                siblings?.Add(parseNode);
+
+            return new ParseBlockResult(currentIndex, expression, parseNode);
         }
     }
 }

@@ -10,7 +10,16 @@ namespace FuncScript.Core
     {
         public enum ParseNodeType
         {
+            RootExpression,
+            NoneExecutable,
             Comment,
+            WhiteSpace,
+            ListSeparator, //comma, semicolor
+            OpenBrace,
+            CloseBrance,
+            StringDelimeter,
+            LambdaArrow,
+            Colon,
             FunctionParameterList,
             FunctionCall,
             MemberAccess,
@@ -23,6 +32,7 @@ namespace FuncScript.Core
             Identifier,
             IdentiferList,
             Operator,
+            ThirdOperandDelimeter,
             LambdaExpression,
             ExpressionInBrace,
             LiteralString,
@@ -32,11 +42,6 @@ namespace FuncScript.Core
             List,
             Key,
             Case,
-            DataConnection,
-            NormalErrorSink,
-            SigSequence,
-            ErrorKeyWord,
-            SignalConnection,
             GeneralInfixExpression,
             PrefixOperatorExpression
         }
@@ -63,8 +68,9 @@ namespace FuncScript.Core
             public IList<ParseNode> Childs;
 
             public ParseNode(ParseNodeType type, int pos, int length)
-                : this(type, pos, length, Array.Empty<ParseNode>())
+                : this(type, pos, length, new List<ParseNode>())
             {
+                
             }
 
             public ParseNode(ParseNodeType nodeType, int pos, int length, IList<ParseNode> childs)
@@ -73,6 +79,11 @@ namespace FuncScript.Core
                 Pos = pos;
                 Length = length;
                 Childs = childs;
+            }
+
+            public ParseNode(ParseNodeType nodeType):this(nodeType,0,0)
+            {
+                
             }
         }
 

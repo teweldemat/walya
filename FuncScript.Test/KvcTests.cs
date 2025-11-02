@@ -432,6 +432,14 @@ d";
             var res = FuncScriptRuntime.Evaluate(exp);
             Assert.AreEqual(5, res);  
         }
+        [Test]
+        public void TestKeyWordMixup()
+        {
+            var g = new DefaultFsDataProvider();
+            var res = FuncScriptRuntime.Evaluate(g, "{ null1:5; y:null1;}");
+            var expected = new ObjectKvc(new { null1 = 5, y = 5 });
+            Assert.AreEqual(FuncScriptRuntime.FormatToJson(expected),  FuncScriptRuntime.FormatToJson(res));
+        }
     }
 
 }

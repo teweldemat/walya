@@ -1,90 +1,75 @@
-using FuncScript.Block;
+using System;
+using System.Collections.Generic;
 using System.Linq;
+using FuncScript.Block;
+using FuncScript.Model;
 
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetInfixFunctionCall(IFsDataProvider parseContext, string exp, int index, out ExpressionBlock prog,
-            out ParseNode parseNode, List<SyntaxErrorData> serrors)
+        static ParseBlockResult GetInfixFunctionCall(ParseContext context, IList<ParseNode> siblings, int index)
         {
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            var errors = context.ErrorsList;
+            var exp = context.Expression;
+
+            var operands = new List<ExpressionBlock>();
             var childNodes = new List<ParseNode>();
-            var allOperands = new List<ExpressionBlock>();
 
-            var i = GetCallAndMemberAccess(parseContext, exp, index, out var firstParam, out var firstPramNode,
-                serrors);
-            if (i == index)
-            {
-                prog = null;
-                parseNode = null;
-                return index;
-            }
-            prog = firstParam;
-            parseNode = firstPramNode;
+            var firstOperandResult = GetCallAndMemberAccess(context, childNodes, index);
+            if (!firstOperandResult.HasProgress(index) || firstOperandResult.ExpressionBlock == null)
+                return ParseBlockResult.NoAdvance(index);
 
+            operands.Add(firstOperandResult.ExpressionBlock);
+            var currentIndex = firstOperandResult.NextIndex;
 
-            allOperands.Add(firstParam);
-            childNodes.Add(firstPramNode);
-            i = SkipSpace(exp, i);
+            var iden=GetIdentifier(context,siblings, currentIndex);
+            var afterIdentifier = iden.NextIndex;
+            if (afterIdentifier == currentIndex)
+                return firstOperandResult;
 
-            var i2 = GetIdentifier(exp, i, out var iden, out var idenLower, out var idenNode);
-            if (i2 == i)
+            var function = context.Provider.Get(iden.IdenLower);
+            if (function is not IFsFunction infixFunction)
             {
-                return i;
-            }
-            var func = parseContext.Get(idenLower);
-            if (!(func is IFsFunction inf))
-            {
-                prog = null;
-                parseNode = null;
-                serrors.Add(new SyntaxErrorData(i,i2-i,"A function expected"));
-                return index;
-            }
-            if (inf.CallType!=CallType.Dual)
-            {
-                return i;
+                errors.Add(new SyntaxErrorData(currentIndex, afterIdentifier - currentIndex, "A function expected"));
+                return ParseBlockResult.NoAdvance(index);
             }
 
-            
-            childNodes.Add(idenNode);
-            i = SkipSpace(exp, i2);
+            if (infixFunction.CallType != CallType.Dual)
+                return firstOperandResult;
 
-            i2 = GetCallAndMemberAccess(parseContext, exp, i, out var secondParam, out var secondParamNode, serrors);
-            if (i2 == i)
+            currentIndex = afterIdentifier;
+
+            var secondOperandResult = GetCallAndMemberAccess(context, childNodes, currentIndex);
+            if (!secondOperandResult.HasProgress(currentIndex) || secondOperandResult.ExpressionBlock == null)
             {
-                serrors.Add(new SyntaxErrorData(i, 0, $"Right side operand expected for {iden}"));
-                prog = null;
-                parseNode = null;
-                return index;
+                errors.Add(new SyntaxErrorData(currentIndex, 0, $"Right side operand expected for {iden.Iden}"));
+                return ParseBlockResult.NoAdvance(index);
             }
 
-            allOperands.Add(secondParam);
-            childNodes.Add(secondParamNode);
-            i = SkipSpace(exp, i2);
-
+            operands.Add(secondOperandResult.ExpressionBlock);
+            currentIndex = secondOperandResult.NextIndex;
 
             while (true)
             {
-                i2 = GetLiteralMatch(exp, i, "~");
-                if (i2 == i)
+                var afterChain = GetToken(exp, currentIndex,siblings,ParseNodeType.ThirdOperandDelimeter, "~");
+                if (afterChain == currentIndex)
                     break;
-                i = SkipSpace(exp, i2);
-                i2 = GetCallAndMemberAccess(parseContext, exp, i, out var moreOperand, out var morePrseNode, serrors);
-                if (i2 == i)
-                    break;
-                i = SkipSpace(exp, i2);
 
-                allOperands.Add(moreOperand);
-                childNodes.Add(morePrseNode);
+                currentIndex = afterChain;
+                var nextOperand = GetCallAndMemberAccess(context, childNodes, currentIndex);
+                if (!nextOperand.HasProgress(currentIndex) || nextOperand.ExpressionBlock == null)
+                    break;
+
+                operands.Add(nextOperand.ExpressionBlock);
+                currentIndex = nextOperand.NextIndex;
             }
 
-
-            if (allOperands.Count < 2)
-            {
-                prog = null;
-                parseNode = null;
-                return index;
-            }
+            if (operands.Count < 2)
+                return ParseBlockResult.NoAdvance(index);
 
             var firstChild = childNodes.FirstOrDefault();
             var lastChild = childNodes.LastOrDefault();
@@ -93,25 +78,27 @@ namespace FuncScript.Core
             var endPos = lastChild != null ? lastChild.Pos + lastChild.Length : startPos;
             if (endPos < startPos)
                 endPos = startPos;
-            var spanLength = endPos - startPos;
 
-            var functionLiteral = new LiteralBlock(func)
+            var functionLiteral = new LiteralBlock(function)
             {
-                Pos = idenNode?.Pos ?? startPos,
-                Length = idenNode?.Length ?? 0
+                Pos = startPos,
+                Length = iden.NextIndex-startPos
             };
 
-            prog = new FunctionCallExpression
+            var expression = new FunctionCallExpression
             {
                 Function = functionLiteral,
-                Parameters = allOperands.ToArray(),
+                Parameters = operands.ToArray(),
                 Pos = startPos,
-                Length = spanLength
+                Length = endPos - startPos
             };
 
-            parseNode = new ParseNode(ParseNodeType.GeneralInfixExpression, startPos, spanLength, childNodes);
+            var parseNode = new ParseNode(ParseNodeType.GeneralInfixExpression, startPos, endPos - startPos,
+                childNodes);
 
-            return i;
+            siblings?.Add(parseNode);
+
+            return new ParseBlockResult(currentIndex, expression, parseNode);
         }
     }
 }

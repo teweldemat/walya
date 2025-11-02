@@ -2,49 +2,45 @@ namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetIdentifierList(String exp, int index, out List<String> idenList, out ParseNode parseNode)
+        static int GetIdentifierList(ParseContext context, int index,IList<ParseNode> siblings, out List<String> idenList, out ParseNode parseNode)
         {
             parseNode = null;
             idenList = null;
-            int i = SkipSpace(exp, index);
-            //get open brace
-            if (i >= exp.Length || exp[i++] != '(')
+            var afterOpen = GetToken(context.Expression, index,siblings,ParseNodeType.OpenBrace, "(");
+            if (afterOpen == index)
                 return index;
 
+            var i = afterOpen;
             idenList = new List<string>();
             var parseNodes = new List<ParseNode>();
-            //get first identifier
-            i = SkipSpace(exp, i);
-            int i2 = GetIdentifier(exp, i, out var iden, out var idenLower, out var nodeIden);
+
+            var iden=GetIdentifier(context,siblings, i);
+            int i2 = iden.NextIndex;
             if (i2 > i)
             {
-                parseNodes.Add(nodeIden);
-                idenList.Add(iden);
+                idenList.Add(iden.Iden);
                 i = i2;
 
-                //get additional identifiers sperated by commas
-                i = SkipSpace(exp, i);
-                while (i < exp.Length)
+                while (i < context.Expression.Length)
                 {
-                    if (exp[i] != ',')
+                    var afterComma = GetToken(context.Expression, i,siblings,ParseNodeType.ListSeparator, ",");
+                    if (afterComma == i)
                         break;
-                    i++;
-                    i = SkipSpace(exp, i);
-                    i2 = GetIdentifier(exp, i, out iden, out idenLower, out nodeIden);
-                    if (i2 == i)
+
+                    iden = GetIdentifier(context,siblings, afterComma);
+                    i2 = iden.NextIndex;
+                    if (i2 == afterComma)
                         return index;
-                    parseNodes.Add(nodeIden);
-                    idenList.Add(iden);
+                    idenList.Add(iden.Iden);
                     i = i2;
-                    i = SkipSpace(exp, i);
                 }
             }
 
-            //get close brace
-            if (i >= exp.Length || exp[i++] != ')')
+            var afterClose = GetToken(context.Expression, i,siblings,ParseNodeType.CloseBrance, ")");
+            if (afterClose == i)
                 return index;
-            parseNode = new ParseNode(ParseNodeType.IdentiferList, index, i - index, parseNodes);
-            return i;
+            parseNode = new ParseNode(ParseNodeType.IdentiferList, index, afterClose - index, parseNodes);
+            return afterClose;
         }
     }
 }

@@ -1,31 +1,33 @@
+using System;
 
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetOperator(IFsDataProvider parseContext, string[] candidates, string exp, int index,
-            out string matechedOp, out IFsFunction oper,
-            out ParseNode parseNode)
+        static ValueParseResult<(string symbol, IFsFunction function)> GetOperator(ParseContext context,
+            string[] candidates, int index)
         {
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+            if (candidates == null)
+                throw new ArgumentNullException(nameof(candidates));
+
+            var exp = context.Expression;
+            var currentIndex = SkipSpace(exp, index);
+
             foreach (var op in candidates)
             {
-                var i = GetLiteralMatch(exp, index, op);
-                if (i <= index) continue;
+                var nextIndex = GetLiteralMatch(exp, currentIndex, op);
+                if (nextIndex <= currentIndex)
+                    continue;
 
-                var func = parseContext.Get(op);
-//                if (func is not IFsFunction f) 
-//                    continue;
-
-                oper = func as IFsFunction;
-                parseNode = new ParseNode(ParseNodeType.Operator, index, i - index);
-                matechedOp = op;
-                return i;
+                var function = context.Provider.Get(op) as IFsFunction;
+                var parseNode = new ParseNode(ParseNodeType.Operator, currentIndex, nextIndex - currentIndex);
+                return new ValueParseResult<(string symbol, IFsFunction function)>(nextIndex, (op, function),
+                    parseNode);
             }
 
-            oper = null;
-            parseNode = null;
-            matechedOp = null;
-            return index;
+            return new ValueParseResult<(string symbol, IFsFunction function)>(index, default, null);
         }
     }
 }

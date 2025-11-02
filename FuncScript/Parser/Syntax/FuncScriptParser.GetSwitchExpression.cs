@@ -1,76 +1,81 @@
+using System;
+using System.Collections.Generic;
 using FuncScript.Block;
 
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetSwitchExpression(IFsDataProvider context, String exp, int index, out ExpressionBlock prog,
-            out ParseNode parseNode, List<SyntaxErrorData> serrors)
+        static ParseBlockResult GetSwitchExpression(ParseContext context, IList<ParseNode> siblings, int index)
         {
-            prog = null;
-            parseNode = null;
-            var i = index;
-            var i2 = GetLiteralMatch(exp, i, KW_SWITCH);
-            if (i2 == i)
-                return index;
-            i = SkipSpace(exp, i2);
-            var pars = new List<ExpressionBlock>();
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            var errors = context.ErrorsList;
+            var exp = context.Expression;
+
             var childNodes = new List<ParseNode>();
-            i2 = GetExpression(context, exp, i, out var partSelector, out var nodeSelector, serrors);
-            if (i2 == i)
+            var keywordResult = GetKeyWord(context, childNodes, index, KW_SWITCH);
+            if (keywordResult==index)
+                return ParseBlockResult.NoAdvance(index);
+
+            var currentIndex = keywordResult;
+            var parameters = new List<ExpressionBlock>();
+
+            var selectorResult = GetExpression(context, childNodes, currentIndex);
+            if (!selectorResult.HasProgress(currentIndex) || selectorResult.ExpressionBlock == null)
             {
-                serrors.Add(new SyntaxErrorData(i, 1, "Switch selector expected"));
-                return index;
+                errors.Add(new SyntaxErrorData(currentIndex, 1, "Switch selector expected"));
+                return ParseBlockResult.NoAdvance(index);
             }
 
-            pars.Add(partSelector);
-            childNodes.Add(nodeSelector);
-            i = SkipSpace(exp, i2);
-            do
+            parameters.Add(selectorResult.ExpressionBlock);
+            currentIndex = selectorResult.NextIndex;
+
+            while (true)
             {
-                i2 = GetLiteralMatch(exp, i, ",", ";");
-                if (i2 == i)
+                var afterSeparator = GetToken(exp, currentIndex,childNodes,ParseNodeType.ListSeparator, ",", ";");
+                if (afterSeparator == currentIndex)
                     break;
-                i = SkipSpace(exp, i2);
-                i2 = GetExpression(context, exp, i, out var part1, out var part1Node, serrors);
-                if (i2 == i)
+
+                var branchConditionIndex = afterSeparator;
+                var branchCondition = GetExpression(context, childNodes, branchConditionIndex);
+                if (!branchCondition.HasProgress(branchConditionIndex) || branchCondition.ExpressionBlock == null)
+                    break;
+
+                parameters.Add(branchCondition.ExpressionBlock);
+                currentIndex = branchCondition.NextIndex;
+
+                var afterColon = GetToken(exp, currentIndex,childNodes,ParseNodeType.Colon, ":");
+                if (afterColon == currentIndex)
+                    break;
+
+                var branchResultIndex = afterColon;
+
+                var branchResult = GetExpression(context, childNodes, branchResultIndex);
+                if (!branchResult.HasProgress(branchResultIndex) || branchResult.ExpressionBlock == null)
                 {
-                    break;
+                    errors.Add(new SyntaxErrorData(branchResultIndex, 1, "Selector result expected"));
+                    return ParseBlockResult.NoAdvance(index);
                 }
 
-                i = SkipSpace(exp, i2);
-                pars.Add(part1);
-                childNodes.Add(part1Node);
+                parameters.Add(branchResult.ExpressionBlock);
+                currentIndex = branchResult.NextIndex;
+            }
 
-                i2 = GetLiteralMatch(exp, i, ":");
-                if (i2 == i)
-                {
-                    break;
-                }
-
-                i = SkipSpace(exp, i2);
-                i2 = GetExpression(context, exp, i, out var part2, out var part2Node, serrors);
-                if (i2 == i)
-                {
-                    serrors.Add(new SyntaxErrorData(i, 1, "Selector result expected"));
-                    return index;
-                }
-
-                pars.Add(part2);
-                childNodes.Add(part2Node);
-                i = SkipSpace(exp, i2);
-            } while (true);
-
-            prog = new FunctionCallExpression
+            var functionCall = new FunctionCallExpression
             {
-                Function = new LiteralBlock(context.Get(KW_SWITCH)),
+                Function = new LiteralBlock(context.Provider.Get(KW_SWITCH)),
                 Pos = index,
-                Length = i - index,
-                Parameters = pars.ToArray(),
+                Length = currentIndex - index,
+                Parameters = parameters.ToArray()
             };
-            parseNode = new ParseNode(ParseNodeType.Case, index, i - index);
-            parseNode.Childs = childNodes;
-            return i;
+
+            var parseNode = new ParseNode(ParseNodeType.Case, index, currentIndex - index, childNodes);
+
+            siblings?.Add(parseNode);
+
+            return new ParseBlockResult(currentIndex, functionCall, parseNode);
         }
     }
 }

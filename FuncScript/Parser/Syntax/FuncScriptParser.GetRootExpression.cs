@@ -1,27 +1,44 @@
+using System;
+using System.Collections.Generic;
+
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetRootExpression(IFsDataProvider parseContext, String exp, int index, out ExpressionBlock prog,
-            out ParseNode parseNode, List<SyntaxErrorData> serrors)
+        static ParseBlockResult GetRootExpression(ParseContext context, int index)
         {
-            var thisErrors = new List<SyntaxErrorData>();
-            var i = GetKvcExpression(parseContext, true, exp, index, out var kvc, out parseNode, thisErrors);
-            if (i > index)
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            var nodes = new List<ParseNode>();
+            var kvcErrors = new List<SyntaxErrorData>();
+            var kvcContext = context.CreateChild(context.Expression, kvcErrors);
+            var kvcResult = GetKvcExpression(kvcContext, nodes, true, index);
+            if (kvcResult.HasProgress(index) && kvcResult.Value != null)
             {
-                prog = kvc;
-                serrors.AddRange(thisErrors);
-                return i;
+                context.ErrorsList.AddRange(kvcErrors);
+                var kvcExpression = kvcResult.Value;
+                if (kvcExpression.Length == 0)
+                {
+                    kvcExpression.Pos = index;
+                    kvcExpression.Length = kvcResult.NextIndex - index;
+                }
+                return new ParseBlockResult(kvcResult.NextIndex, kvcExpression, new ParseNode(ParseNodeType.RootExpression,kvcExpression.Pos,kvcExpression.Length, nodes));
             }
 
-            thisErrors = new List<SyntaxErrorData>();
-            i = GetExpression(parseContext, exp, index, out prog, out parseNode, serrors);
-            if (i > index)
+            var expressionResult = GetExpression(context, nodes, index);
+            if (expressionResult.HasProgress(index) && expressionResult.ExpressionBlock != null)
             {
-                serrors.AddRange(thisErrors);
-                return i;
+                var expression = expressionResult.ExpressionBlock;
+                if (expression.Length == 0)
+                {
+                    expression.Pos = index;
+                    expression.Length = expressionResult.NextIndex - index;
+                }
+                return new ParseBlockResult(expressionResult.NextIndex, expressionResult.ExpressionBlock,  new ParseNode(ParseNodeType.RootExpression,expression.Pos,expression.Length, nodes));
             }
-            return index;
+
+            return ParseBlockResult.NoAdvance(index);
         }
     }
 }

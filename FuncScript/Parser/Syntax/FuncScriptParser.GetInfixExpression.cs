@@ -1,14 +1,16 @@
+using System;
+using System.Collections.Generic;
+
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetInfixExpression(IFsDataProvider parseContext, String exp, int index, out ExpressionBlock prog,
-            out ParseNode parseNode, List<SyntaxErrorData> serrors)
+        static ParseBlockResult GetInfixExpression(ParseContext context, IList<ParseNode> siblings, int index)
         {
-            var i = GetInfixExpressionSingleLevel(parseContext, s_operatorSymols.Length - 1, s_operatorSymols[^1], exp,
-                index, out prog,
-                out parseNode, serrors);
-            return i;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            return GetInfixExpressionSingleLevel(context, siblings, s_operatorSymols.Length - 1, s_operatorSymols[^1], index);
         }
     }
 }

@@ -1,162 +1,168 @@
+using System;
+using System.Collections.Generic;
 using FuncScript.Block;
 
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetUnit(IFsDataProvider provider, String exp, int index, out ExpressionBlock prog,
-            out ParseNode parseNode, List<SyntaxErrorData> serrors)
+        static ParseBlockResult GetUnit(ParseContext context, IList<ParseNode> siblings, int index)
         {
-            ParseNode nodeUnit;
-            parseNode = null;
-            prog = null;
-            int i;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
 
+            var errors = context.ErrorsList;
+            var exp = context.Expression;
 
-            //get string
-            i = GetStringTemplate(provider, exp, index, out var template, out nodeUnit, serrors);
-            if (i > index)
+            // String template
+            var stringTemplateResult = GetStringTemplate(context, siblings, index);
+            if (stringTemplateResult.HasProgress(index) && stringTemplateResult.ExpressionBlock != null)
             {
-                parseNode = nodeUnit;
-                prog = template;
-                prog.Pos = index;
-                prog.Length = i - index;
-                return i;
+                var block = stringTemplateResult.ExpressionBlock;
+                block.Pos = index;
+                block.Length = stringTemplateResult.NextIndex - index;
+                return new ParseBlockResult(stringTemplateResult.NextIndex, block, stringTemplateResult.ParseNode);
             }
 
-            //get string 
-            i = GetSimpleString(exp, index, out var str, out nodeUnit, serrors);
-            if (i > index)
+            // Simple string literal
+            var stringIndex = GetSimpleString(exp, index, out var text, out var stringNode, errors);
+            if (stringIndex > index)
             {
-                parseNode = nodeUnit;
-                prog = new LiteralBlock(str);
-                prog.Pos = index;
-                prog.Length = i - index;
-                return i;
+                var block = new LiteralBlock(text)
+                {
+                    Pos = index,
+                    Length = stringIndex - index
+                };
+                if (stringNode != null)
+                    siblings?.Add(stringNode);
+                return new ParseBlockResult(stringIndex, block, stringNode);
             }
 
-            //get number
-            i = GetNumber(exp, index, out var numberVal, out nodeUnit, serrors);
-            if (i > index)
+            // Numeric literal
+            var numberIndex = GetNumber(exp, index, out var numberValue, out var numberNode, errors);
+            if (numberIndex > index)
             {
-                parseNode = nodeUnit;
-                prog = new LiteralBlock(numberVal);
-                prog.Pos = index;
-                prog.Length = i - index;
-                return i;
+                var block = new LiteralBlock(numberValue)
+                {
+                    Pos = index,
+                    Length = numberIndex - index
+                };
+                if (numberNode != null)
+                    siblings?.Add(numberNode);
+                return new ParseBlockResult(numberIndex, block, numberNode);
             }
 
-            //list expression
-            i = GetListExpression(provider, exp, index, out var lst, out nodeUnit, serrors);
-            if (i > index)
+            // List expression
+            var listResult = GetListExpression(context, siblings, index);
+            if (listResult.HasProgress(index) && listResult.Value != null)
             {
-                parseNode = nodeUnit;
-                prog = lst;
-                prog.Pos = index;
-                prog.Length = i - index;
-                return i;
+                var listExpression = listResult.Value;
+                listExpression.Pos = index;
+                listExpression.Length = listResult.NextIndex - index;
+                return new ParseBlockResult(listResult.NextIndex, listExpression, listResult.ParseNode);
             }
 
-
-            //kvc expression
-            i = GetKvcExpression(provider, false, exp, index, out var json, out nodeUnit, serrors);
-            if (i > index)
+            // Key-value collection or selector definition
+            var kvcResult = GetKvcExpression(context, siblings, false, index);
+            if (kvcResult.HasProgress(index) && kvcResult.Value != null)
             {
-                parseNode = nodeUnit;
-                prog = json;
-                prog.Pos = index;
-                prog.Length = i - index;
-                return i;
+                var kvcExpression = kvcResult.Value;
+                kvcExpression.Pos = index;
+                kvcExpression.Length = kvcResult.NextIndex - index;
+                return new ParseBlockResult(kvcResult.NextIndex, kvcExpression, kvcResult.ParseNode);
             }
 
-            i = GetIfThenElseExpression(provider, exp, index, out var ifCall, out var ifNode, serrors);
-            if (i > index)
+            // If-then-else
+            var ifResult = GetIfThenElseExpression(context, siblings, index);
+            if (ifResult.HasProgress(index) && ifResult.ExpressionBlock != null)
             {
-                parseNode = ifNode;
-                prog = ifCall;
-                prog.Pos = index;
-                prog.Length = i - index;
-                return i;
+                var block = ifResult.ExpressionBlock;
+                block.Pos = index;
+                block.Length = ifResult.NextIndex - index;
+                return new ParseBlockResult(ifResult.NextIndex, block, ifResult.ParseNode);
             }
 
-            i = GetCaseExpression(provider, exp, i, out var caseExp, out var caseNode, serrors);
-            if (i > index)
+            // Case expression
+            var caseResult = GetCaseExpression(context, siblings, index);
+            if (caseResult.HasProgress(index) && caseResult.ExpressionBlock != null)
             {
-                parseNode = caseNode;
-                prog = caseExp;
-                prog.Pos = index;
-                prog.Length = i - index;
-                return i;
+                var block = caseResult.ExpressionBlock;
+                block.Pos = index;
+                block.Length = caseResult.NextIndex - index;
+                return new ParseBlockResult(caseResult.NextIndex, block, caseResult.ParseNode);
             }
 
-            i = GetSwitchExpression(provider, exp, i, out var switchExp, out var switchNode, serrors);
-            if (i > index)
+            // Switch expression
+            var switchResult = GetSwitchExpression(context, siblings, index);
+            if (switchResult.HasProgress(index) && switchResult.ExpressionBlock != null)
             {
-                parseNode = switchNode;
-                prog = switchExp;
-                prog.Pos = index;
-                prog.Length = i - index;
-                return i;
+                var block = switchResult.ExpressionBlock;
+                block.Pos = index;
+                block.Length = switchResult.NextIndex - index;
+                return new ParseBlockResult(switchResult.NextIndex, block, switchResult.ParseNode);
             }
 
-            //expression function
-            i = GetLambdaExpression(provider, exp, index, out var ef, out nodeUnit, serrors);
-            if (i > index)
+            // Lambda expression
+            var lambdaResult = GetLambdaExpression(context, siblings, index);
+            if (lambdaResult.HasProgress(index) && lambdaResult.Value != null)
             {
-                parseNode = nodeUnit;
-                prog = new LiteralBlock(ef);
-                prog.Pos = index;
-                prog.Length = i - index;
-                return i;
+                var block = new LiteralBlock(lambdaResult.Value)
+                {
+                    Pos = index,
+                    Length = lambdaResult.NextIndex - index
+                };
+                return new ParseBlockResult(lambdaResult.NextIndex, block, lambdaResult.ParseNode);
             }
 
-
-            //null, true, false
-            i = GetKeyWordLiteral(exp, index, out var kw, out nodeUnit);
-            if (i > index)
+            // Keyword literal (null/true/false)
+            var keywordIndex = GetKeyWordLiteral(exp, index, out var keywordValue, out var keywordNode);
+            if (keywordIndex > index)
             {
-                parseNode = nodeUnit;
-                prog = new LiteralBlock(kw);
-                prog.Pos = index;
-                prog.Length = i - index;
-                return i;
+                var block = new LiteralBlock(keywordValue)
+                {
+                    Pos = index,
+                    Length = keywordIndex - index
+                };
+                if (keywordNode != null)
+                    siblings?.Add(keywordNode);
+                return new ParseBlockResult(keywordIndex, block, keywordNode);
             }
 
-            
-
-            //get identifier
-            i = GetIdentifier(exp, index, out var ident, out var identLower, out nodeUnit);
-            if (i > index)
+            // Identifier reference
+            var identifierIndex = GetIdentifier(exp, index, out var identifier, out _, out var identifierNode);
+            if (identifierIndex > index)
             {
-                parseNode = nodeUnit;
-                prog = new ReferenceBlock(ident);
-                prog.Pos = index;
-                prog.Length = i - index;
-                return i;
+                var reference = new ReferenceBlock(identifier)
+                {
+                    Pos = index,
+                    Length = identifierIndex - index
+                };
+                if (identifierNode != null)
+                    siblings?.Add(identifierNode);
+                return new ParseBlockResult(identifierIndex, reference, identifierNode);
             }
 
-            i = GetExpInParenthesis(provider, exp, index, out prog, out nodeUnit, serrors);
-            if (i > index)
+            // Expression in parenthesis
+            var parenthesisResult = GetExpInParenthesis(context, siblings, index);
+            if (parenthesisResult.HasProgress(index) && parenthesisResult.ExpressionBlock != null)
             {
-                parseNode = nodeUnit;
-                prog.Pos = index;
-                prog.Length = i - index;
-                return i;
+                var block = parenthesisResult.ExpressionBlock;
+                block.Pos = index;
+                block.Length = parenthesisResult.NextIndex - index;
+                return parenthesisResult;
             }
 
-            //get prefix operator
-            i = GetPrefixOperator(provider, exp, index, out var prefixOp, out var prefixOpNode, serrors);
-            if (i > index)
+            // Prefix operator
+            var prefixResult = GetPrefixOperator(context, siblings, index);
+            if (prefixResult.HasProgress(index) && prefixResult.ExpressionBlock != null)
             {
-                prog = prefixOp;
-                parseNode = prefixOpNode;
-                prog.Pos = index;
-                prog.Length = i - index;
-                return i;
+                var block = prefixResult.ExpressionBlock;
+                block.Pos = index;
+                block.Length = prefixResult.NextIndex - index;
+                return prefixResult;
             }
 
-
-            return index;
+            return ParseBlockResult.NoAdvance(index);
         }
     }
 }
