@@ -1,0 +1,46 @@
+{
+  "name": "funcscript-vscode",
+  "displayName": "FuncScript",
+  "description": "Parser-backed syntax highlighting and folding for FuncScript (.fx) files.",
+  "version": "0.1.1",
+  "publisher": "tewelde",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/teweldemat/funcscript-1.git"
+  },
+  "engines": {
+    "vscode": "^1.84.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:funcscript"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "funcscript",
+        "aliases": ["FuncScript", "funcscript"],
+        "extensions": [".fx"],
+        "configuration": "./language-configuration.json"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/vscode": "^1.84.0",
+    "tslib": "^2.6.2",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "@tewelde/funcscript": "file:../funcscript-js"
+  }
+}
