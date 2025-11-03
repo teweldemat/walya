@@ -46,7 +46,7 @@ namespace FuncScript.Core
             var parseNode = new ParseNode(ParseNodeType.List, index, currentIndex - index, nodes);
             siblings?.Add(parseNode);
 
-            return new ValueParseResult<ListExpression>(currentIndex, listExpression, parseNode);
+            return new ValueParseResult<ListExpression>(currentIndex, listExpression);
         }
     }
 }

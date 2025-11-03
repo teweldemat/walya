@@ -38,7 +38,7 @@ namespace FuncScript.Core
 
             siblings?.Add(parseNode);
 
-            return new ParseBlockResult(currentIndex, expression, parseNode);
+            return new ParseBlockResult(currentIndex, expression);
         }
     }
 }

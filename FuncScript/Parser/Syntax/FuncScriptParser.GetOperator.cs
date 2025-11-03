@@ -4,7 +4,7 @@ namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static ValueParseResult<(string symbol, IFsFunction function)> GetOperator(ParseContext context,
+        static ValueParseResult<(string symbol, IFsFunction function)> GetOperator(ParseContext context,IList<ParseNode> siblings,
             string[] candidates, int index)
         {
             if (context == null)
@@ -13,7 +13,7 @@ namespace FuncScript.Core
                 throw new ArgumentNullException(nameof(candidates));
 
             var exp = context.Expression;
-            var currentIndex = SkipSpace(exp, index);
+            var currentIndex = SkipSpace(context,siblings, index);
 
             foreach (var op in candidates)
             {
@@ -23,8 +23,8 @@ namespace FuncScript.Core
 
                 var function = context.Provider.Get(op) as IFsFunction;
                 var parseNode = new ParseNode(ParseNodeType.Operator, currentIndex, nextIndex - currentIndex);
-                return new ValueParseResult<(string symbol, IFsFunction function)>(nextIndex, (op, function),
-                    parseNode);
+                siblings.Add(parseNode);
+                return new ValueParseResult<(string symbol, IFsFunction function)>(nextIndex, (op, function));
             }
 
             return new ValueParseResult<(string symbol, IFsFunction function)>(index, default, null);

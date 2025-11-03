@@ -23,10 +23,9 @@ namespace FuncScript.Core
                 siblings.Add(new ParseNode(ParseNodeType.WhiteSpace, index, i - index));
             }
 
-            var commentResult = GetCommentBlock(context, i);
-            if (commentResult.HasProgress(i) && commentResult.ParseNode != null)
+            var commentResult = GetCommentBlock(context,siblings, i);
+            if (commentResult.HasProgress(i))
             {
-                siblings.Add(commentResult.ParseNode);
                 i = commentResult.NextIndex;
             }
 

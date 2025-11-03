@@ -16,7 +16,7 @@ namespace FuncScript.Core
             var exp = context.Expression;
 
             var currentIndex = index;
-            var afterOpen = GetToken(exp, currentIndex,siblings,ParseNodeType.OpenBrace, "[");
+            var afterOpen = GetToken(context, currentIndex,siblings,ParseNodeType.OpenBrace, "[");
             if (afterOpen == currentIndex)
                 return new ValueParseResult<ListExpression>(index, null, null);
 
@@ -34,7 +34,7 @@ namespace FuncScript.Core
 
                 while (true)
                 {
-                    var afterComma = GetToken(exp, currentIndex,siblings,ParseNodeType.Colon,  ",");
+                    var afterComma = GetToken(context, currentIndex,siblings,ParseNodeType.Colon,  ",");
                     if (afterComma == currentIndex)
                         break;
                     
@@ -49,7 +49,7 @@ namespace FuncScript.Core
                 }
             }
 
-            var afterClose = GetToken(exp, currentIndex,siblings,ParseNodeType.CloseBrance, "]");
+            var afterClose = GetToken(context, currentIndex,siblings,ParseNodeType.CloseBrance, "]");
             if (afterClose == currentIndex)
             {
                 errors.Add(new SyntaxErrorData(currentIndex, 0, "']' expected"));
@@ -60,7 +60,7 @@ namespace FuncScript.Core
             var listExpression = new ListExpression { ValueExpressions = items.ToArray() };
             var parseNode = new ParseNode(ParseNodeType.List, index, currentIndex - index, nodes);
             siblings?.Add(parseNode);
-            return new ValueParseResult<ListExpression>(currentIndex, listExpression, parseNode);
+            return new ValueParseResult<ListExpression>(currentIndex, listExpression);
         }
     }
 }

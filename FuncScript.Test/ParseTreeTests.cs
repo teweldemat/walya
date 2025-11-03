@@ -16,7 +16,7 @@ namespace FuncScript.Test
 {
     internal class ParseTreeTests
     {
-        static ParseBlockResult ParseExpression(IFsDataProvider provider, string expression,
+        static ParseBlockResultWithNode ParseExpression(IFsDataProvider provider, string expression,
             List<FuncScriptParser.SyntaxErrorData> errors)
         {
             var context = new ParseContext(provider, expression, errors);

@@ -15,7 +15,7 @@ namespace FuncScript.Core
             var exp = context.Expression;
 
             var currentIndex = index;
-            var afterOpen = GetToken(exp, currentIndex,siblings,ParseNodeType.OpenBrace, "(");
+            var afterOpen = GetToken(context, currentIndex,siblings,ParseNodeType.OpenBrace, "(");
             if (afterOpen == currentIndex)
                 return ParseBlockResult.NoAdvance(index);
 
@@ -27,11 +27,10 @@ namespace FuncScript.Core
             if (expressionResult.HasProgress(currentIndex))
             {
                 expressionBlock = expressionResult.ExpressionBlock;
-                expressionNode = expressionResult.ParseNode;
                 currentIndex = expressionResult.NextIndex;
             }
 
-            var afterClose = GetToken(exp, currentIndex,siblings,ParseNodeType.CloseBrance, ")");
+            var afterClose = GetToken(context, currentIndex,siblings,ParseNodeType.CloseBrance, ")");
             if (afterClose == currentIndex)
             {
                 errors.Add(new SyntaxErrorData(currentIndex, 0, "')' expected"));
@@ -45,9 +44,9 @@ namespace FuncScript.Core
             var parseNode = new ParseNode(ParseNodeType.ExpressionInBrace, index, currentIndex - index,
                 expressionNode != null ? childNodes : Array.Empty<ParseNode>());
 
-            siblings?.Add(parseNode);
+            siblings.Add(parseNode);
 
-            return new ParseBlockResult(currentIndex, expressionBlock, parseNode);
+            return new ParseBlockResult(currentIndex, expressionBlock);
         }
     }
 }

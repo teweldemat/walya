@@ -17,7 +17,7 @@ namespace FuncScript.Core
             var keyValueResult = GetKeyValuePair(context, siblings, index);
             if (keyValueResult.HasProgress(index))
                 return new ValueParseResult<KvcExpression.KeyValueExpression>(keyValueResult.NextIndex,
-                    keyValueResult.Value, keyValueResult.ParseNode);
+                    keyValueResult.Value);
 
             var returnResult = GetReturnDefinition(context, siblings, index);
             if (returnResult.HasProgress(index) && returnResult.ExpressionBlock != null)
@@ -27,33 +27,31 @@ namespace FuncScript.Core
                     Key = null,
                     ValueExpression = returnResult.ExpressionBlock
                 };
-                return new ValueParseResult<KvcExpression.KeyValueExpression>(returnResult.NextIndex, item,
-                    returnResult.ParseNode);
+                return new ValueParseResult<KvcExpression.KeyValueExpression>(returnResult.NextIndex, item);
             }
 
             if (!nakedKvc)
             {
-                var identifierIndex = GetIdentifier(exp, index, out var iden, out var idenLower, out var nodeIden);
+                var iden = GetIdentifier(context, siblings, index);
+                var identifierIndex =iden.NextIndex ;
                 if (identifierIndex > index)
                 {
-                    var reference = new ReferenceBlock(iden, idenLower, false)
+                    var reference = new ReferenceBlock(iden.Iden, iden.IdenLower, false)
                     {
                         Pos = index,
                         Length = identifierIndex - index
                     };
                     var item = new KvcExpression.KeyValueExpression
                     {
-                        Key = iden,
-                        KeyLower = idenLower,
+                        Key = iden.Iden,
+                        KeyLower = iden.IdenLower,
                         ValueExpression = reference
                     };
-                    if (nodeIden != null)
-                        siblings?.Add(nodeIden);
-                    return new ValueParseResult<KvcExpression.KeyValueExpression>(identifierIndex, item, nodeIden);
+                    return new ValueParseResult<KvcExpression.KeyValueExpression>(identifierIndex, item);
                 }
 
                 var stringErrors = new List<SyntaxErrorData>();
-                var stringIndex = GetSimpleString(exp, index, out var stringIden, out var nodeStringIden, stringErrors);
+                var stringIndex = GetSimpleString(context,siblings, index, out var stringIden, out var nodeStringIden, stringErrors);
                 if (stringIndex > index)
                 {
                     var reference = new ReferenceBlock(stringIden, stringIden.ToLowerInvariant(), false)
@@ -67,13 +65,11 @@ namespace FuncScript.Core
                         KeyLower = stringIden.ToLowerInvariant(),
                         ValueExpression = reference
                     };
-                    if (nodeStringIden != null)
-                        siblings?.Add(nodeStringIden);
-                    return new ValueParseResult<KvcExpression.KeyValueExpression>(stringIndex, item, nodeStringIden);
+                    return new ValueParseResult<KvcExpression.KeyValueExpression>(stringIndex, item);
                 }
             }
 
-            return new ValueParseResult<KvcExpression.KeyValueExpression>(index, null, null);
+            return new ValueParseResult<KvcExpression.KeyValueExpression>(index, null);
         }
     }
 }

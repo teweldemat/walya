@@ -19,7 +19,7 @@ namespace FuncScript.Core
             var currentIndex = index;
             foreach (var op in s_prefixOp)
             {
-                var nextIndex = GetToken(exp, index,siblings,ParseNodeType.Operator,op[0]);
+                var nextIndex = GetToken(context, index,siblings,ParseNodeType.Operator,op[0]);
                 if (nextIndex > index)
                 {
                     matchedSymbol = op[0];
@@ -64,7 +64,7 @@ namespace FuncScript.Core
 
             siblings?.Add(parseNode);
 
-            return new ParseBlockResult(currentIndex, expression, parseNode);
+            return new ParseBlockResult(currentIndex, expression);
         }
     }
 }

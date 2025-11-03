@@ -16,128 +16,62 @@ namespace FuncScript.Core
 
             if (index >= exp.Length)
                 return ParseBlockResult.NoAdvance(index);
-
-            var keywordNodes = new List<ParseNode>();
-            var afterIf = GetKeyWord(context, keywordNodes, index, "if");
-            if (afterIf==index)
+            var childNodes = new List<ParseNode>();
+            var currentIndex = index;
+            
+            var i2 = GetKeyWord(context, childNodes, index, "if");
+            if (i2==index)
                 return ParseBlockResult.NoAdvance(index);
-
-
-            if (afterIf < exp.Length && !isCharWhiteSpace(exp[afterIf]))
-                return ParseBlockResult.NoAdvance(index);
-
-            var conditionStart = SkipWhitespaceAndComments(exp, afterIf);
-            if (conditionStart >= exp.Length)
-                return ParseBlockResult.NoAdvance(index);
-
-            if (!TrySplitIfThenElseSegments(exp, conditionStart, out var conditionSegment, out var trueSegment,
-                    out var falseStart, out var thenIndex, out var elseIndex))
-            {
-                return ParseBlockResult.NoAdvance(index);
-            }
-
-            // parse condition segment
-            var conditionTextLength = conditionSegment.end - conditionSegment.start;
-            if (conditionTextLength <= 0)
-                return ParseBlockResult.NoAdvance(index);
-
-            var conditionErrors = new List<SyntaxErrorData>();
-            var conditionContext = context.CreateChild(exp.Substring(conditionSegment.start, conditionTextLength),
-                conditionErrors);
-            var conditionResult = Parse(conditionContext);
-            var conditionExpr = conditionResult.ExpressionBlock;
-            var conditionNode = conditionResult.ParseNode;
-            if (conditionExpr == null || conditionErrors.Count > 0)
-            {
-                AddErrorsWithOffset(errors, conditionErrors, conditionSegment.start);
-                return ParseBlockResult.NoAdvance(index);
-            }
-            OffsetParseNode(conditionNode, conditionSegment.start);
-            conditionExpr.Pos = conditionSegment.start;
-            conditionExpr.Length = conditionTextLength;
-
-            // parse true segment
-            var trueTextLength = trueSegment.end - trueSegment.start;
-            if (trueTextLength <= 0)
-                return ParseBlockResult.NoAdvance(index);
-
-            var trueErrors = new List<SyntaxErrorData>();
-            var trueContext = context.CreateChild(exp.Substring(trueSegment.start, trueTextLength), trueErrors);
-            var trueResult = Parse(trueContext);
-            var trueExpr = trueResult.ExpressionBlock;
-            var trueNode = trueResult.ParseNode;
-            if (trueExpr == null || trueErrors.Count > 0)
-            {
-                AddErrorsWithOffset(errors, trueErrors, trueSegment.start);
-                return ParseBlockResult.NoAdvance(index);
-            }
-            OffsetParseNode(trueNode, trueSegment.start);
-            trueExpr.Pos = trueSegment.start;
-            trueExpr.Length = trueTextLength;
-
-            // parse false segment using main expression parser to determine remaining length
-            var falseErrors = new List<SyntaxErrorData>();
-            var falseContext = context.CreateChild(exp, falseErrors);
-            var falseResult = GetExpression(falseContext, new List<ParseNode>(), falseStart);
-            if (!falseResult.HasProgress(falseStart) || falseResult.ExpressionBlock == null)
-            {
-                AddErrorsWithOffset(errors, falseErrors, 0);
-                return ParseBlockResult.NoAdvance(index);
-            }
-            if (falseErrors.Count > 0)
-            {
-                AddErrorsWithOffset(errors, falseErrors, 0);
-                return ParseBlockResult.NoAdvance(index);
-            }
-
-            var falseExpr = falseResult.ExpressionBlock;
-            var falseNode = falseResult.ParseNode;
-            var falseConsumed = falseResult.NextIndex;
-
-            falseExpr.Pos = falseStart;
-            falseExpr.Length = falseConsumed - falseStart;
-
-            var functionBlock = new ReferenceBlock(exp.Substring(index, afterIf - index))
+            var functionBlock = new ReferenceBlock(exp.Substring(index, i2 - index))
             {
                 Pos = index,
-                Length = afterIf - index
+                Length = i2 - index
             };
+            currentIndex = i2;
+            
+            var condition = GetExpression(context, childNodes, currentIndex);
+            
+            if (!condition.HasProgress(currentIndex))
+                return ParseBlockResult.NoAdvance(index);
+            
+            currentIndex = condition.NextIndex;
+            
+            i2 = GetKeyWord(context, childNodes, index, "then");
+            if (i2==index)
+                return ParseBlockResult.NoAdvance(index);
+            currentIndex = i2;
+            
+            var trueValue = GetExpression(context, childNodes, currentIndex);
+
+            if(!trueValue.HasProgress(currentIndex))
+                return ParseBlockResult.NoAdvance(index);
+            
+            i2 = GetKeyWord(context, childNodes, index, "else");
+            i2 = GetKeyWord(context, childNodes, index, "else");
+            if (i2==index)
+                return ParseBlockResult.NoAdvance(index);
+            currentIndex = i2;
+            
+            var elseValue = GetExpression(context, childNodes, currentIndex);
+
+            if(!elseValue.HasProgress(currentIndex))
+                return ParseBlockResult.NoAdvance(index);
+            currentIndex = elseValue.NextIndex;
 
             var functionCall = new FunctionCallExpression
             {
                 Function = functionBlock,
-                Parameters = new[] { conditionExpr, trueExpr, falseExpr },
+                Parameters = new[] { condition.ExpressionBlock, trueValue.ExpressionBlock, elseValue.ExpressionBlock },
                 Pos = index,
-                Length = falseConsumed - index
+                Length = elseValue.NextIndex
             };
 
-            var identifierNode = new ParseNode(ParseNodeType.Identifier, index, afterIf - index);
+            var functionCallNode = new ParseNode(ParseNodeType.FunctionCall, index, currentIndex - index,
+                childNodes);
 
-            var paramsStart = conditionExpr.Pos;
-            var paramsEnd = falseExpr.Pos + falseExpr.Length;
-            var parametersChildren = new List<ParseNode>();
-            if (conditionNode != null)
-                parametersChildren.Add(conditionNode);
+            siblings.Add(functionCallNode);
 
-            parametersChildren.Add(new ParseNode(ParseNodeType.KeyWord, thenIndex, 4));
-
-            if (trueNode != null)
-                parametersChildren.Add(trueNode);
-
-            parametersChildren.Add(new ParseNode(ParseNodeType.KeyWord, elseIndex, 4));
-
-            if (falseNode != null)
-                parametersChildren.Add(falseNode);
-
-            var parametersNode = new ParseNode(ParseNodeType.FunctionParameterList, paramsStart,
-                paramsEnd - paramsStart, parametersChildren);
-
-            var functionCallNode = new ParseNode(ParseNodeType.FunctionCall, index, falseConsumed - index,
-                new[] { identifierNode, parametersNode });
-
-            siblings?.Add(functionCallNode);
-
-            return new ParseBlockResult(falseConsumed, functionCall, functionCallNode);
+            return new ParseBlockResult(currentIndex, functionCall);
         }
 
         private static bool TrySplitIfThenElseSegments(string exp, int conditionStart,

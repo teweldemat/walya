@@ -55,7 +55,7 @@ namespace FuncScript.Core
 
             while (true)
             {
-                var afterChain = GetToken(exp, currentIndex,siblings,ParseNodeType.ThirdOperandDelimeter, "~");
+                var afterChain = GetToken(context, currentIndex,siblings,ParseNodeType.ThirdOperandDelimeter, "~");
                 if (afterChain == currentIndex)
                     break;
 
@@ -98,7 +98,7 @@ namespace FuncScript.Core
 
             siblings?.Add(parseNode);
 
-            return new ParseBlockResult(currentIndex, expression, parseNode);
+            return new ParseBlockResult(currentIndex, expression);
         }
     }
 }

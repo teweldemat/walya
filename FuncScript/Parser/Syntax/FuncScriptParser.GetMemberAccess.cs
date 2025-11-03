@@ -33,12 +33,13 @@ namespace FuncScript.Core
             var errors = context.ErrorsList;
             var exp = context.Expression;
 
-            var afterOperator = GetToken(exp, index,siblings,ParseNodeType.Operator, oper);
+            var afterOperator = GetToken(context, index,siblings,ParseNodeType.Operator, oper);
             if (afterOperator == index)
                 return ParseBlockResult.NoAdvance(index);
 
             var memberIndex = afterOperator;
-            var afterIdentifier = GetIdentifier(exp, memberIndex, out var member, out _, out var memberNode);
+            var iden=GetIdentifier(context,siblings, memberIndex);
+            var afterIdentifier = iden.NextIndex;
             if (afterIdentifier == memberIndex)
             {
                 errors.Add(new SyntaxErrorData(memberIndex, 0, "member identifier expected"));
@@ -51,17 +52,14 @@ namespace FuncScript.Core
             var expression = new FunctionCallExpression
             {
                 Function = new LiteralBlock(function),
-                Parameters = new ExpressionBlock[] { source, new LiteralBlock(member) },
+                Parameters = new ExpressionBlock[] { source, new LiteralBlock(iden.Iden) },
                 Pos = source.Pos,
                 Length = currentIndex - source.Pos
             };
 
-            var childNodes = memberNode != null ? new[] { memberNode } : Array.Empty<ParseNode>();
-            var parseNode = new ParseNode(ParseNodeType.MemberAccess, index, currentIndex - index, childNodes);
-
-            siblings?.Add(parseNode);
-
-            return new ParseBlockResult(currentIndex, expression, parseNode);
+            var parseNode = new ParseNode(ParseNodeType.MemberAccess, index, currentIndex - index);
+            siblings.Add(parseNode);
+            return new ParseBlockResult(currentIndex, expression);
         }
     }
 }

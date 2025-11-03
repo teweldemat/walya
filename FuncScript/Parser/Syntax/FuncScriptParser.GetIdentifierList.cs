@@ -6,7 +6,7 @@ namespace FuncScript.Core
         {
             parseNode = null;
             idenList = null;
-            var afterOpen = GetToken(context.Expression, index,siblings,ParseNodeType.OpenBrace, "(");
+            var afterOpen = GetToken(context, index,siblings,ParseNodeType.OpenBrace, "(");
             if (afterOpen == index)
                 return index;
 
@@ -23,7 +23,7 @@ namespace FuncScript.Core
 
                 while (i < context.Expression.Length)
                 {
-                    var afterComma = GetToken(context.Expression, i,siblings,ParseNodeType.ListSeparator, ",");
+                    var afterComma = GetToken(context, i,siblings,ParseNodeType.ListSeparator, ",");
                     if (afterComma == i)
                         break;
 
@@ -36,7 +36,7 @@ namespace FuncScript.Core
                 }
             }
 
-            var afterClose = GetToken(context.Expression, i,siblings,ParseNodeType.CloseBrance, ")");
+            var afterClose = GetToken(context, i,siblings,ParseNodeType.CloseBrance, ")");
             if (afterClose == i)
                 return index;
             parseNode = new ParseNode(ParseNodeType.IdentiferList, index, afterClose - index, parseNodes);

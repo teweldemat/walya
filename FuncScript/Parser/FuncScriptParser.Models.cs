@@ -27,28 +27,26 @@ namespace FuncScript.Core
             }
         }
 
+        
         public class ParseResult
         {
-            public ParseResult(int nextIndex, ParseNode parseNode)
+            public ParseResult(int nextIndex)
             {
                 NextIndex = nextIndex;
-                ParseNode = parseNode;
             }
 
 
             public int NextIndex { get; }
-
-            public ParseNode ParseNode { get; }
-
-            public static ParseBlockResult NoAdvance(int index) => new ParseBlockResult(index, null, null);
+            
+            public static ParseBlockResult NoAdvance(int index) => new ParseBlockResult(index, null);
 
             public bool HasProgress(int currentIndex) => NextIndex > currentIndex;
         }
 
         public class ParseBlockResult:ParseResult
         {
-            public ParseBlockResult(int nextIndex, ExpressionBlock expressionBlock, ParseNode parseNode)
-            :base(nextIndex,parseNode)
+            public ParseBlockResult(int nextIndex, ExpressionBlock expressionBlock)
+            :base(nextIndex)
             {
                 ExpressionBlock = expressionBlock;
             }
@@ -57,17 +55,29 @@ namespace FuncScript.Core
             public ExpressionBlock ExpressionBlock { get; }
 
         }
+        public class ParseBlockResultWithNode:ParseBlockResult
+        {
+            public ParseBlockResultWithNode(int nextIndex, ExpressionBlock expressionBlock,ParseNode parseNode)
+                :base(nextIndex,expressionBlock)
+            {
+                this.ParseNode = parseNode;
+            }
+
+
+            public ParseNode ParseNode { get; }
+
+        }
 
         public class ValueParseResult<T> : ParseResult
         {
-            public ValueParseResult(int nextIndex, T value, ParseNode parseNode)
-                : base(nextIndex, parseNode)
+            public ValueParseResult(int nextIndex, T value)
+                : base(nextIndex)
             {
                 Value = value;
             }
 
-            public ValueParseResult(int nextIndex, T value, ExpressionBlock expressionBlock, ParseNode parseNode)
-                : base(nextIndex, parseNode)
+            public ValueParseResult(int nextIndex, T value, ExpressionBlock expressionBlock)
+                : base(nextIndex)
             {
                 Value = value;
             }
@@ -78,7 +88,7 @@ namespace FuncScript.Core
         public class CommentParseResult : ValueParseResult<string>
         {
             public CommentParseResult(int nextIndex, string text, ParseNode parseNode)
-                : base(nextIndex, text, parseNode)
+                : base(nextIndex, text)
             {
             }
 

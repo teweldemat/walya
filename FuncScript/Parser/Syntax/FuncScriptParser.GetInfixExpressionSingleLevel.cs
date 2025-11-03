@@ -29,29 +29,23 @@ namespace FuncScript.Core
                 return ParseBlockResult.NoAdvance(index);
 
             var currentExpression = operandResult.ExpressionBlock;
-            var currentNode = operandResult.ParseNode;
             currentIndex = operandResult.NextIndex;
 
             while (true)
             {
-                var operatorResult = GetOperator(context, candidates, currentIndex);
+                var operatorResult = GetOperator(context,siblings, candidates, currentIndex);
                 if (!operatorResult.HasProgress(currentIndex))
                     break;
 
                 var symbol = operatorResult.Value.symbol;
-                var currentOperatorNode = operatorResult.ParseNode;
                 currentIndex = operatorResult.NextIndex;
                 var indexBeforeOperator = currentIndex;
 
                 var operands = new List<ExpressionBlock> { currentExpression };
                 var operandNodes = new List<ParseNode>();
-                if (currentNode != null)
-                    operandNodes.Add(currentNode);
 
                 while (true)
                 {
-                    if (currentOperatorNode != null)
-                        operandNodes.Add(currentOperatorNode);
 
                     ParseBlockResult nextOperand;
                     if (level == 0)
@@ -66,7 +60,7 @@ namespace FuncScript.Core
                     operands.Add(nextOperand.ExpressionBlock);
                     currentIndex = nextOperand.NextIndex;
 
-                    var repeated = GetToken(exp, currentIndex,siblings,ParseNodeType.Operator, symbol);
+                    var repeated = GetToken(context, currentIndex,siblings,ParseNodeType.Operator, symbol);
                     if (repeated == currentIndex)
                         break;
                     currentIndex = repeated;
@@ -125,14 +119,11 @@ namespace FuncScript.Core
 
                 var nodeStart = operandNodes.Count > 0 ? operandNodes[0].Pos : startPos;
                 var nodeLength = endPos - nodeStart;
-                currentNode = new ParseNode(ParseNodeType.InfixExpression, nodeStart, nodeLength, operandNodes);
                 currentExpression = combined;
             }
 
-            if (currentNode != null)
-                siblings?.Add(currentNode);
 
-            return new ParseBlockResult(currentIndex, currentExpression, currentNode);
+            return new ParseBlockResult(currentIndex, currentExpression);
         }
     }
 }

@@ -39,7 +39,7 @@ namespace FuncScript.Core
                 }
                 else
                 {
-                    var afterSeparator = GetToken(exp, currentIndex,childNodes,ParseNodeType.ListSeparator, ",", ";");
+                    var afterSeparator = GetToken(context, currentIndex,childNodes,ParseNodeType.ListSeparator, ",", ";");
                     if (afterSeparator == currentIndex)
                         break;
 
@@ -53,7 +53,7 @@ namespace FuncScript.Core
                     currentIndex = nextCondition.NextIndex;
                 }
 
-                var afterColon = GetToken(exp, currentIndex,childNodes,ParseNodeType.Colon, ":");
+                var afterColon = GetToken(context, currentIndex,childNodes,ParseNodeType.Colon, ":");
                 if (afterColon == currentIndex)
                     break;
 
@@ -82,7 +82,7 @@ namespace FuncScript.Core
 
             siblings?.Add(parseNode);
 
-            return new ParseBlockResult(currentIndex, functionCall, parseNode);
+            return new ParseBlockResult(currentIndex, functionCall);
         }
     }
 }

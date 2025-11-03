@@ -55,7 +55,7 @@ namespace FuncScript.Core
                     currentIndex = expressionResult.NextIndex;
                     parts.Add(expressionResult.ExpressionBlock);
 
-                    var interpolationEnd = GetToken(exp, currentIndex,nodeParts,ParseNodeType.CloseBrance, "}");
+                    var interpolationEnd = GetToken(context, currentIndex,nodeParts,ParseNodeType.CloseBrance, "}");
                     if (interpolationEnd == currentIndex)
                     {
                         errors.Add(new SyntaxErrorData(currentIndex, 0, "'}' expected"));
@@ -103,7 +103,7 @@ namespace FuncScript.Core
             if (parseNode != null)
                 siblings?.Add(parseNode);
 
-            return new ParseBlockResult(currentIndex, expression, parseNode);
+            return new ParseBlockResult(currentIndex, expression);
         }
     }
 }

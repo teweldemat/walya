@@ -11,12 +11,12 @@ namespace FuncScript.Core
         {
             if (context == null)
                 throw new ArgumentNullException(nameof(context));
-
+            var childNodes = new List<ParseNode>();
             var exp = context.Expression;
             var errors = context.ErrorsList;
 
             var keyErrors = new List<SyntaxErrorData>();
-            var currentIndex = GetSimpleString(exp, index, out var name, out var nameNode, keyErrors);
+            var currentIndex = GetSimpleString(context,childNodes, index, out var name, out var nameNode, keyErrors);
             if (currentIndex == index)
             {
                 var iden=GetIdentifier(context,siblings, index);
@@ -25,19 +25,14 @@ namespace FuncScript.Core
                     return new ValueParseResult<KvcExpression.KeyValueExpression>(index, null, null);
             }
 
-            var afterColon = GetToken(exp, currentIndex,siblings,ParseNodeType.Colon, ":");
+            var afterColon = GetToken(context, currentIndex,siblings,ParseNodeType.Colon, ":");
             if (afterColon == currentIndex)
                 return new ValueParseResult<KvcExpression.KeyValueExpression>(index, null, null);
 
             currentIndex = afterColon;
-            if (nameNode != null)
-                nameNode.NodeType = ParseNodeType.Key;
 
-            var childNodes = new List<ParseNode>();
-            if (nameNode != null)
-                childNodes.Add(nameNode);
 
-            var valueResult = GetExpression(context, childNodes, currentIndex);
+            var valueResult = GetExpression(context, siblings, currentIndex);
             if (!valueResult.HasProgress(currentIndex) || valueResult.ExpressionBlock == null)
             {
                 errors.Add(new SyntaxErrorData(currentIndex, 0, "value expression expected"));
@@ -53,8 +48,8 @@ namespace FuncScript.Core
             };
 
             var parseNode = new ParseNode(ParseNodeType.KeyValuePair, index, currentIndex - index, childNodes);
-            siblings?.Add(parseNode);
-            return new ValueParseResult<KvcExpression.KeyValueExpression>(currentIndex, keyValue, parseNode);
+            siblings.Add(parseNode);
+            return new ValueParseResult<KvcExpression.KeyValueExpression>(currentIndex, keyValue);
         }
     }
 }

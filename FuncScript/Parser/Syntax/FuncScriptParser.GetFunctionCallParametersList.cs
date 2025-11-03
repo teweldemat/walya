@@ -31,7 +31,7 @@ namespace FuncScript.Core
             var errors = context.ErrorsList;
             var exp = context.Expression;
 
-            var afterOpen = GetToken(exp, index,siblings,ParseNodeType.OpenBrace, openBrace);
+            var afterOpen = GetToken(context, index,siblings,ParseNodeType.OpenBrace, openBrace);
             if (afterOpen == index)
                 return ParseBlockResult.NoAdvance(index);
 
@@ -49,7 +49,7 @@ namespace FuncScript.Core
 
                 while (true)
                 {
-                    var afterComma = GetToken(exp, currentIndex,siblings,ParseNodeType.ListSeparator, ",");
+                    var afterComma = GetToken(context, currentIndex,siblings,ParseNodeType.ListSeparator, ",");
                     if (afterComma == currentIndex)
                         break;
 
@@ -66,7 +66,7 @@ namespace FuncScript.Core
                 }
             }
 
-            var afterClose = GetToken(exp, currentIndex,siblings,ParseNodeType.CloseBrance, closeBrace);
+            var afterClose = GetToken(context, currentIndex,siblings,ParseNodeType.CloseBrance, closeBrace);
             if (afterClose == currentIndex)
             {
                 errors.Add(new SyntaxErrorData(currentIndex, 0, $"'{closeBrace}' expected"));
@@ -88,7 +88,7 @@ namespace FuncScript.Core
 
             siblings?.Add(parseNode);
 
-            return new ParseBlockResult(currentIndex, callExpression, parseNode);
+            return new ParseBlockResult(currentIndex, callExpression);
         }
     }
 }

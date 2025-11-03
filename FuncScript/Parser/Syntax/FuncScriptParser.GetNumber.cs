@@ -2,7 +2,7 @@ namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetNumber(String exp, int index, out object number, out ParseNode parseNode,
+        static int GetNumber(ParseContext context,IList<ParseNode> siblings, int index, out object number, out ParseNode parseNode,
             List<SyntaxErrorData> serros)
         {
             parseNode = null;
@@ -10,40 +10,40 @@ namespace FuncScript.Core
             var hasExp = false;
             var hasLong = false;
             number = null;
-            if (index >= exp.Length)
+            if (index >= context.Expression.Length)
                 return index;
 
-            var currentIndex = SkipSpace(exp, index);
-            if (currentIndex >= exp.Length)
+            var currentIndex = SkipSpace(context,siblings, index);
+            if (currentIndex >= context.Expression.Length)
                 return index;
 
             int i = currentIndex;
-            var i2 = GetInt(exp, true, i, out var intDigits, out var nodeDigits);
+            var i2 = GetInt(context,siblings, true, i, out var intDigits);
             if (i2 == i)
                 return index;
             i = i2;
 
-            i2 = GetLiteralMatch(exp, i, ".");
+            i2 = GetLiteralMatch(context.Expression, i, ".");
             if (i2 > i)
                 hasDecimal = true;
             i = i2;
             if (hasDecimal)
             {
-                i = GetInt(exp, false, i, out var decimalDigits, out var nodeDecimlaDigits);
+                i = GetInt(context,siblings, false, i, out var decimalDigitss);
             }
 
-            i2 = GetLiteralMatch(exp, i, "E");
+            i2 = GetLiteralMatch(context.Expression, i, "E");
             if (i2 > i)
                 hasExp = true;
             i = i2;
             String expDigits = null;
             ParseNode nodeExpDigits;
             if (hasExp)
-                i = GetInt(exp, true, i, out expDigits, out nodeExpDigits);
+                i = GetInt(context,siblings, true, i, out expDigits);
 
             if (!hasDecimal) //if no decimal we check if there is the 'l' suffix
             {
-                i2 = GetLiteralMatch(exp, i, "l");
+                i2 = GetLiteralMatch(context.Expression, i, "l");
                 if (i2 > i)
                     hasLong = true;
                 i = i2;
@@ -51,10 +51,10 @@ namespace FuncScript.Core
 
             if (hasDecimal) //if it has decimal we treat it as 
             {
-                if (!double.TryParse(exp.Substring(currentIndex, i - currentIndex), out var dval))
+                if (!double.TryParse(context.Expression.Substring(currentIndex, i - currentIndex), out var dval))
                 {
                     serros.Add(new SyntaxErrorData(currentIndex, i - currentIndex,
-                        $"{exp.Substring(currentIndex, i - currentIndex)} couldn't be parsed as floating point"));
+                        $"{context.Expression.Substring(currentIndex, i - currentIndex)} couldn't be parsed as floating point"));
                     return index; //we don't expect this to happen
                 }
 

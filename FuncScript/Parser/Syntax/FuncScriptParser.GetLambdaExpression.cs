@@ -15,7 +15,7 @@ namespace FuncScript.Core
             var errors = context.ErrorsList;
             var exp = context.Expression;
 
-            var currentIndex = GetIdentifierList(exp, index,siblings, out var parameters, out var parametersNode);
+            var currentIndex = GetIdentifierList(context, index,siblings, out var parameters, out var parametersNode);
             if (currentIndex == index)
                 return new ValueParseResult<ExpressionFunction>(index, null, null);
 
@@ -23,7 +23,7 @@ namespace FuncScript.Core
             if (arrowIndex >= exp.Length - 1)
                 return new ValueParseResult<ExpressionFunction>(index, null, null);
 
-            var afterArrow = GetToken(exp, arrowIndex,siblings,ParseNodeType.LambdaArrow, "=>");
+            var afterArrow = GetToken(context, arrowIndex,siblings,ParseNodeType.LambdaArrow, "=>");
             if (afterArrow == arrowIndex)
             {
                 errors.Add(new SyntaxErrorData(arrowIndex, 0, "'=>' expected"));
@@ -51,7 +51,7 @@ namespace FuncScript.Core
 
             siblings?.Add(parseNode);
 
-            return new ValueParseResult<ExpressionFunction>(currentIndex, function, parseNode);
+            return new ValueParseResult<ExpressionFunction>(currentIndex, function);
         }
     }
 }

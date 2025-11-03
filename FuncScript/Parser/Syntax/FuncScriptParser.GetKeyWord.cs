@@ -17,7 +17,7 @@ namespace FuncScript.Core
             if (index >= exp.Length)
                 return index;
             
-            var nextIndex = GetToken(exp, index, siblings, ParseNodeType.KeyWord, keyword);
+            var nextIndex = GetToken(context, index, siblings, ParseNodeType.KeyWord, keyword);
             if (nextIndex == index)
                 return index;
 

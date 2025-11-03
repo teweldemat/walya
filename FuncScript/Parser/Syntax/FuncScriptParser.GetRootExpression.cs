@@ -5,7 +5,7 @@ namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static ParseBlockResult GetRootExpression(ParseContext context, int index)
+        static ParseBlockResultWithNode GetRootExpression(ParseContext context, int index)
         {
             if (context == null)
                 throw new ArgumentNullException(nameof(context));
@@ -23,7 +23,7 @@ namespace FuncScript.Core
                     kvcExpression.Pos = index;
                     kvcExpression.Length = kvcResult.NextIndex - index;
                 }
-                return new ParseBlockResult(kvcResult.NextIndex, kvcExpression, new ParseNode(ParseNodeType.RootExpression,kvcExpression.Pos,kvcExpression.Length, nodes));
+                return new ParseBlockResultWithNode(kvcResult.NextIndex, kvcExpression,new ParseNode(ParseNodeType.RootExpression,index,kvcResult.NextIndex - index,nodes));
             }
 
             var expressionResult = GetExpression(context, nodes, index);
@@ -35,10 +35,10 @@ namespace FuncScript.Core
                     expression.Pos = index;
                     expression.Length = expressionResult.NextIndex - index;
                 }
-                return new ParseBlockResult(expressionResult.NextIndex, expressionResult.ExpressionBlock,  new ParseNode(ParseNodeType.RootExpression,expression.Pos,expression.Length, nodes));
+                return new ParseBlockResultWithNode(expressionResult.NextIndex, expressionResult.ExpressionBlock,new ParseNode(ParseNodeType.RootExpression,index,expressionResult.NextIndex - index,nodes));;
             }
 
-            return ParseBlockResult.NoAdvance(index);
+            return new ParseBlockResultWithNode(index,null,null);
         }
     }
 }

@@ -9,8 +9,14 @@ namespace FuncScript.Core
         {
             if (context == null)
                 throw new ArgumentNullException(nameof(context));
+            var childNodes = new List<ParseNode>();
+            var ret= GetInfixExpressionSingleLevel(context, childNodes, s_operatorSymols.Length - 1, s_operatorSymols[^1], index);
+            if (ret.HasProgress(index))
+            {
+                siblings.Add(new ParseNode(ParseNodeType.InfixExpression,index,ret.NextIndex-index,childNodes));
+            }
 
-            return GetInfixExpressionSingleLevel(context, siblings, s_operatorSymols.Length - 1, s_operatorSymols[^1], index);
+            return ParseResult.NoAdvance(index);
         }
     }
 }

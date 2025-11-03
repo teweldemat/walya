@@ -35,18 +35,16 @@ namespace FuncScript.Core
             return index;
         }
 
-        static int GetToken(string exp, int index, IList<ParseNode> siblings, ParseNodeType nodeType,
+        static int GetToken(ParseContext context,int index, IList<ParseNode> siblings,ParseNodeType nodeType,
              params string[] tokens)
         {
             var node = new ParseNode(nodeType);
 
-            if (exp == null)
-                throw new ArgumentNullException(nameof(exp));
             if (tokens == null || tokens.Length == 0)
                 throw new ArgumentException("At least one token must be provided.", nameof(tokens));
 
-            var searchIndex = SkipSpace(exp, index);
-            var nextIndex = GetLiteralMatch(exp, searchIndex, tokens);
+            var searchIndex = SkipSpace(context,siblings, index);
+            var nextIndex = GetLiteralMatch(context.Expression, searchIndex, tokens);
             if (nextIndex == searchIndex)
             {
                 return index;

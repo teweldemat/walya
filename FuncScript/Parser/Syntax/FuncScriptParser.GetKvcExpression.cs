@@ -18,7 +18,7 @@ namespace FuncScript.Core
             var currentIndex = index;
             if (!nakedMode)
             {
-                var afterOpen = GetToken(exp, currentIndex,siblings,ParseNodeType.OpenBrace, "{");
+                var afterOpen = GetToken(context, currentIndex,siblings,ParseNodeType.OpenBrace, "{");
                 if (afterOpen == currentIndex)
                     return new ValueParseResult<KvcExpression>(index, null, null);
 
@@ -31,13 +31,6 @@ namespace FuncScript.Core
 
             while (true)
             {
-                var beforeItemWhitespace = SkipSpace(context, currentIndex);
-                if (beforeItemWhitespace.HasProgress(currentIndex))
-                {
-                    currentIndex = beforeItemWhitespace.NextIndex;
-                    if (beforeItemWhitespace.ParseNode != null)
-                        nodeItems.Add(beforeItemWhitespace.ParseNode);
-                }
 
                 var itemResult = GetKvcItem(context, nodeItems, nakedMode, currentIndex);
                 if (!itemResult.HasProgress(currentIndex))
@@ -47,7 +40,7 @@ namespace FuncScript.Core
                 {
                     if (returnExpression != null)
                     {
-                        var errorPos = itemResult.ParseNode?.Pos ?? currentIndex;
+                        var errorPos = currentIndex;
                         errors.Add(new SyntaxErrorData(errorPos, nodeItems.Count, "Duplicate return statement"));
                         return new ValueParseResult<KvcExpression>(index, null, null);
                     }
@@ -61,22 +54,15 @@ namespace FuncScript.Core
 
                 currentIndex = itemResult.NextIndex;
 
-                var afterItemWhitespace = SkipSpace(context, currentIndex);
-                if (afterItemWhitespace.HasProgress(currentIndex))
-                {
-                    currentIndex = afterItemWhitespace.NextIndex;
-                    if (afterItemWhitespace.ParseNode != null)
-                        nodeItems.Add(afterItemWhitespace.ParseNode);
-                }
 
-                var afterSeparator = GetToken(exp, currentIndex, nodeItems, ParseNodeType.ListSeparator, ",", ";");
+                var afterSeparator = GetToken(context, currentIndex, nodeItems, ParseNodeType.ListSeparator, ",", ";");
                 if (afterSeparator > currentIndex)
                     currentIndex = afterSeparator;
             }
 
             if (!nakedMode)
             {
-                var afterClose = GetToken(exp, currentIndex,siblings,ParseNodeType.CloseBrance, "}");
+                var afterClose = GetToken(context, currentIndex,siblings,ParseNodeType.CloseBrance, "}");
                 if (afterClose == currentIndex)
                 {
                     errors.Add(new SyntaxErrorData(currentIndex, 0, "'}' expected"));
@@ -100,7 +86,7 @@ namespace FuncScript.Core
 
             var parseNode = new ParseNode(ParseNodeType.KeyValueCollection, index, currentIndex - index, nodeItems);
             siblings?.Add(parseNode);
-            return new ValueParseResult<KvcExpression>(currentIndex, kvcExpression, parseNode);
+            return new ValueParseResult<KvcExpression>(currentIndex, kvcExpression);
         }
     }
 }

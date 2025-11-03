@@ -21,11 +21,11 @@ namespace FuncScript.Core
                 var block = stringTemplateResult.ExpressionBlock;
                 block.Pos = index;
                 block.Length = stringTemplateResult.NextIndex - index;
-                return new ParseBlockResult(stringTemplateResult.NextIndex, block, stringTemplateResult.ParseNode);
+                return new ParseBlockResult(stringTemplateResult.NextIndex, block);
             }
 
             // Simple string literal
-            var stringIndex = GetSimpleString(exp, index, out var text, out var stringNode, errors);
+            var stringIndex = GetSimpleString(context,siblings, index, out var text, out var stringNode, errors);
             if (stringIndex > index)
             {
                 var block = new LiteralBlock(text)
@@ -35,11 +35,11 @@ namespace FuncScript.Core
                 };
                 if (stringNode != null)
                     siblings?.Add(stringNode);
-                return new ParseBlockResult(stringIndex, block, stringNode);
+                return new ParseBlockResult(stringIndex, block);
             }
 
             // Numeric literal
-            var numberIndex = GetNumber(exp, index, out var numberValue, out var numberNode, errors);
+            var numberIndex = GetNumber(context,siblings, index, out var numberValue, out var numberNode, errors);
             if (numberIndex > index)
             {
                 var block = new LiteralBlock(numberValue)
@@ -49,7 +49,7 @@ namespace FuncScript.Core
                 };
                 if (numberNode != null)
                     siblings?.Add(numberNode);
-                return new ParseBlockResult(numberIndex, block, numberNode);
+                return new ParseBlockResult(numberIndex, block);
             }
 
             // List expression
@@ -59,7 +59,7 @@ namespace FuncScript.Core
                 var listExpression = listResult.Value;
                 listExpression.Pos = index;
                 listExpression.Length = listResult.NextIndex - index;
-                return new ParseBlockResult(listResult.NextIndex, listExpression, listResult.ParseNode);
+                return new ParseBlockResult(listResult.NextIndex, listExpression);
             }
 
             // Key-value collection or selector definition
@@ -69,7 +69,7 @@ namespace FuncScript.Core
                 var kvcExpression = kvcResult.Value;
                 kvcExpression.Pos = index;
                 kvcExpression.Length = kvcResult.NextIndex - index;
-                return new ParseBlockResult(kvcResult.NextIndex, kvcExpression, kvcResult.ParseNode);
+                return new ParseBlockResult(kvcResult.NextIndex, kvcExpression);
             }
 
             // If-then-else
@@ -79,7 +79,7 @@ namespace FuncScript.Core
                 var block = ifResult.ExpressionBlock;
                 block.Pos = index;
                 block.Length = ifResult.NextIndex - index;
-                return new ParseBlockResult(ifResult.NextIndex, block, ifResult.ParseNode);
+                return new ParseBlockResult(ifResult.NextIndex, block);
             }
 
             // Case expression
@@ -89,7 +89,7 @@ namespace FuncScript.Core
                 var block = caseResult.ExpressionBlock;
                 block.Pos = index;
                 block.Length = caseResult.NextIndex - index;
-                return new ParseBlockResult(caseResult.NextIndex, block, caseResult.ParseNode);
+                return new ParseBlockResult(caseResult.NextIndex, block);
             }
 
             // Switch expression
@@ -99,7 +99,7 @@ namespace FuncScript.Core
                 var block = switchResult.ExpressionBlock;
                 block.Pos = index;
                 block.Length = switchResult.NextIndex - index;
-                return new ParseBlockResult(switchResult.NextIndex, block, switchResult.ParseNode);
+                return new ParseBlockResult(switchResult.NextIndex, block);
             }
 
             // Lambda expression
@@ -111,11 +111,11 @@ namespace FuncScript.Core
                     Pos = index,
                     Length = lambdaResult.NextIndex - index
                 };
-                return new ParseBlockResult(lambdaResult.NextIndex, block, lambdaResult.ParseNode);
+                return new ParseBlockResult(lambdaResult.NextIndex, block);
             }
 
             // Keyword literal (null/true/false)
-            var keywordIndex = GetKeyWordLiteral(exp, index, out var keywordValue, out var keywordNode);
+            var keywordIndex = GetKeyWordLiteral(context,siblings, index, out var keywordValue, out var keywordNode);
             if (keywordIndex > index)
             {
                 var block = new LiteralBlock(keywordValue)
@@ -123,23 +123,20 @@ namespace FuncScript.Core
                     Pos = index,
                     Length = keywordIndex - index
                 };
-                if (keywordNode != null)
-                    siblings?.Add(keywordNode);
-                return new ParseBlockResult(keywordIndex, block, keywordNode);
+                return new ParseBlockResult(keywordIndex, block);
             }
 
             // Identifier reference
-            var identifierIndex = GetIdentifier(exp, index, out var identifier, out _, out var identifierNode);
+            var iden=GetIdentifier(context,siblings, index);
+            var identifierIndex = iden.NextIndex;
             if (identifierIndex > index)
             {
-                var reference = new ReferenceBlock(identifier)
+                var reference = new ReferenceBlock(iden.Iden)
                 {
                     Pos = index,
                     Length = identifierIndex - index
                 };
-                if (identifierNode != null)
-                    siblings?.Add(identifierNode);
-                return new ParseBlockResult(identifierIndex, reference, identifierNode);
+                return new ParseBlockResult(identifierIndex, reference);
             }
 
             // Expression in parenthesis

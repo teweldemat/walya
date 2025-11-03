@@ -30,7 +30,7 @@ namespace FuncScript.Core
             var errors = context.ErrorsList;
             var exp = context.Expression;
 
-            var templateStart = SkipSpace(exp, index);
+            var templateStart = SkipSpace(context,siblings, index);
             if (templateStart >= exp.Length)
                 return ParseBlockResult.NoAdvance(index);
 
@@ -108,7 +108,7 @@ namespace FuncScript.Core
                     currentIndex = expressionResult.NextIndex;
                     parts.Add(expressionResult.ExpressionBlock);
 
-                    var afterExpressionEnd = GetToken(exp, currentIndex,siblings,ParseNodeType.CloseBrance, "}");
+                    var afterExpressionEnd = GetToken(context, currentIndex,siblings,ParseNodeType.CloseBrance, "}");
                     if (afterExpressionEnd == currentIndex)
                     {
                         errors.Add(new SyntaxErrorData(currentIndex, 0, "'}' expected"));
@@ -174,7 +174,7 @@ namespace FuncScript.Core
             if (parseNode != null)
                 siblings?.Add(parseNode);
 
-            return new ParseBlockResult(currentIndex, expression, parseNode);
+            return new ParseBlockResult(currentIndex, expression);
         }
     }
 }

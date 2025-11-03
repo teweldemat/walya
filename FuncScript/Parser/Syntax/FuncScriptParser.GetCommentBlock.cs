@@ -4,7 +4,7 @@ namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static ParseResult GetCommentBlock(ParseContext context, int index)
+        static ParseResult GetCommentBlock(ParseContext context,IList<ParseNode> siblings, int index)
         {
             if (context == null)
                 throw new ArgumentNullException(nameof(context));

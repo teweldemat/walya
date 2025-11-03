@@ -21,7 +21,7 @@ namespace FuncScript.Core
 
             string firstItem;
             ParseNode firstNode;
-            var i2 = GetSimpleString(exp, i, out firstItem, out firstNode, errors);
+            var i2 = GetSimpleString(context,siblings, i, out firstItem, out firstNode, errors);
             if (i2 == i)
                 i2 = GetSpaceLessString(exp, i, out firstItem, out firstNode);
 
@@ -39,7 +39,7 @@ namespace FuncScript.Core
 
                     i = i2;
 
-                    i2 = GetSimpleString(exp, i, out var otherItem, out var otherNode, errors);
+                    i2 = GetSimpleString(context,siblings, i, out var otherItem, out var otherNode, errors);
                     if (i2 == i)
                         i2 = GetSpaceLessString(exp, i, out otherItem, out otherNode);
 
@@ -58,7 +58,7 @@ namespace FuncScript.Core
 
             var parseNode = new ParseNode(ParseNodeType.List, index, i - index, nodeListItems);
             siblings?.Add(parseNode);
-            return new ValueParseResult<IReadOnlyList<string>>(i, listItems.ToArray(), parseNode);
+            return new ValueParseResult<IReadOnlyList<string>>(i, listItems.ToArray());
         }
     }
 }

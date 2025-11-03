@@ -5,7 +5,7 @@ namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        public static ParseBlockResult Parse(ParseContext context)
+        public static ParseBlockResultWithNode Parse(ParseContext context)
         {
             if (context == null)
                 throw new ArgumentNullException(nameof(context));
@@ -15,17 +15,7 @@ namespace FuncScript.Core
         public static ExpressionBlock Parse(IFsDataProvider context, String exp, List<SyntaxErrorData> serrors)
         {
             var errors = serrors ?? new List<SyntaxErrorData>();
-            return Parse(context, exp, out _, errors);
-        }
-
-
-        public static ExpressionBlock Parse(IFsDataProvider context, String exp, out ParseNode parseNode,
-            List<SyntaxErrorData> serrors)
-        {
-            var errors = serrors ?? new List<SyntaxErrorData>();
-            var result = Parse(new ParseContext(context, exp, errors));
-            parseNode = result.ParseNode;
-            return result.ExpressionBlock;
+            return Parse(context, exp,  errors);
         }
 
 
