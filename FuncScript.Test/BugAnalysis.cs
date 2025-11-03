@@ -42,4 +42,14 @@ public class BugAnalysis
         Assert.Less(timer.ElapsedMilliseconds, 500);
         Console.WriteLine($"Parsing took {timer.ElapsedMilliseconds} milliseconds");
     }
+
+    [Test]
+    public void CommentHandling_Bug()
+    {
+        var exp = @"4//3 
+ +5;
+";
+        var res = Engine.Evaluate(exp);
+        Assert.AreEqual(9, res);
+    }
 }

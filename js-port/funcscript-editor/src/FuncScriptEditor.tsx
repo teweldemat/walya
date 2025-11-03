@@ -189,10 +189,7 @@ const createFuncScriptExtensions = (
         continue;
       }
 
-      const style =
-        'color:' +
-        segment.color +
-        ';font-weight:600;text-shadow:0 0 0.6px rgba(0,0,0,0.25);';
+      const style = 'color:' + segment.color + ';';
       decorations.push(
         Decoration.mark({
           attributes: {

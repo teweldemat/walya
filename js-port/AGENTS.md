@@ -1,14 +1,15 @@
-# FuncScript JavaScript Port
+# FuncScript JavaScript Port Overview
 This folder contains the JavaScript port of the **.NET FuncScript interpreter**.  
-# Implementation details
+## Implementation Details
 Typed Values
-- Type information is fundamental to the internal execution of FuncScript functions. In this JavaScript port, every value is represented as a tuple of **(type number, value)** to maintain strict consistency with the .NET implementation.
-- The JavaScript interpreter is completely self‑contained and has no external dependencies.
+- Type information is central to FuncScript’s internal execution model. In this JavaScript port, each value is represented as a tuple of **(type number, value)** to maintain full alignment with the .NET implementation.
+- The JavaScript interpreter is entirely self-contained and has no external dependencies.
 
 ## Folder Structure
-- **funcscript-js** — contains the implementation of the JavaScript FuncScript interpreter.  
-- **funcscript-js-test** — contains unit tests for the interpreter.
+- **funcscript-js** — core implementation of the JavaScript FuncScript interpreter.  
+- **funcscript-js-test** — unit tests for the interpreter.
+- **funcscript-editor** — a React-based CodeMirror editor with FuncScript syntax highlighting.
 
 ## Porting approach
-Start from FuncScript.Core.FuncScriptParser.Parse(IFsDataProvider context, String exp, out ParseNode parseNode) method and follow the call tree.
-In js-port/port-progress.md maintain hierarchical dynamic task‑progress list.
+Begin from the `FuncScript.Core.FuncScriptParser.Parse(IFsDataProvider context, String exp, out ParseNode parseNode)` method and follow its call tree.  
+Maintain a hierarchical dynamic task progress list in `js-port/port-progress.md`.

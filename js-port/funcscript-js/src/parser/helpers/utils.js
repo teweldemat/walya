@@ -119,33 +119,39 @@ function getCommentBlock(context, siblings, index) {
 function skipSpace(context, siblings, index) {
   const expression = context.Expression;
   let i = index;
-  while (i < expression.length && isCharWhiteSpace(expression[i])) {
-    i += 1;
-  }
+  while (true) {
+    const whitespaceStart = i;
+    while (i < expression.length && isCharWhiteSpace(expression[i])) {
+      i += 1;
+    }
 
-  if (i > index) {
-    const length = i - index;
-    let addWhitespace = true;
-    for (let s = siblings.length - 1; s >= 0; s -= 1) {
-      const existing = siblings[s];
-      if (!existing || existing.NodeType !== ParseNodeType.WhiteSpace) {
-        continue;
+    if (i > whitespaceStart) {
+      const length = i - whitespaceStart;
+      let addWhitespace = true;
+      for (let s = siblings.length - 1; s >= 0; s -= 1) {
+        const existing = siblings[s];
+        if (!existing || existing.NodeType !== ParseNodeType.WhiteSpace) {
+          continue;
+        }
+        if (existing.Pos === whitespaceStart && existing.Length === length) {
+          addWhitespace = false;
+        }
+        if (existing.Pos <= whitespaceStart) {
+          break;
+        }
       }
-      if (existing.Pos === index && existing.Length === length) {
-        addWhitespace = false;
-      }
-      if (existing.Pos <= index) {
-        break;
+      if (addWhitespace) {
+        siblings.push(new ParseNode(ParseNodeType.WhiteSpace, whitespaceStart, length));
       }
     }
-    if (addWhitespace) {
-      siblings.push(new ParseNode(ParseNodeType.WhiteSpace, index, length));
-    }
-  }
 
-  const afterComment = getCommentBlock(context, siblings, i);
-  if (afterComment > i) {
-    i = afterComment;
+    const afterComment = getCommentBlock(context, siblings, i);
+    if (afterComment > i) {
+      i = afterComment;
+      continue;
+    }
+
+    break;
   }
   return i;
 }

@@ -13,39 +13,47 @@ namespace FuncScript.Core
             var exp = context.Expression;
 
             var i = index;
-            while (i < exp.Length && isCharWhiteSpace(exp[i]))
-            {
-                i++;
-            }
 
-            if (i > index)
+            while (true)
             {
-                var length = i - index;
-                var addWhitespace = true;
-                for (var s = siblings.Count - 1; s >= 0; s--)
+                var whitespaceStart = i;
+                while (i < exp.Length && isCharWhiteSpace(exp[i]))
                 {
-                    var existing = siblings[s];
-                    if (existing.NodeType != ParseNodeType.WhiteSpace)
-                        continue;
-                    if (existing.Pos == index && existing.Length == length)
+                    i++;
+                }
+
+                if (i > whitespaceStart)
+                {
+                    var length = i - whitespaceStart;
+                    var addWhitespace = true;
+                    for (var s = siblings.Count - 1; s >= 0; s--)
                     {
-                        addWhitespace = false;
+                        var existing = siblings[s];
+                        if (existing.NodeType != ParseNodeType.WhiteSpace)
+                            continue;
+                        if (existing.Pos == whitespaceStart && existing.Length == length)
+                        {
+                            addWhitespace = false;
+                        }
+
+                        if (existing.Pos <= whitespaceStart)
+                            break;
                     }
 
-                    if (existing.Pos <= index)
-                        break;
+                    if (addWhitespace)
+                    {
+                        siblings.Add(new ParseNode(ParseNodeType.WhiteSpace, whitespaceStart, length));
+                    }
                 }
 
-                if (addWhitespace)
+                var commentResult = GetCommentBlock(context, siblings, i);
+                if (commentResult > i)
                 {
-                    siblings.Add(new ParseNode(ParseNodeType.WhiteSpace, index, length));
+                    i = commentResult;
+                    continue;
                 }
-            }
 
-            var commentResult = GetCommentBlock(context,siblings, i);
-            if (commentResult>i)
-            {
-                i = commentResult;
+                break;
             }
 
             return i;
