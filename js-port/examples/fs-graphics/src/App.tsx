@@ -22,6 +22,7 @@ import {
 } from './graphics';
 import type { PreparedGraphics, PreparedPrimitive, PreparedTransform, ViewExtent } from './graphics';
 import './App.css';
+import { FuncScriptEditor } from '@tewelde/funcscript-editor';
 
 const MIN_LEFT_WIDTH = 260;
 const MIN_RIGHT_WIDTH = 320;
@@ -352,6 +353,89 @@ const App = (): JSX.Element => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+  const viewEvaluation = useMemo<EvaluationResult>(() => evaluateExpression(providerRef.current, viewExpression), [
+    viewExpression
+  ]);
+
+  const graphicsEvaluation = useMemo<EvaluationResult>(
+    () => evaluateExpression(providerRef.current, graphicsExpression),
+    [graphicsExpression]
+  );
+
+  const viewInterpretation = useMemo(() => interpretView(viewEvaluation.value), [viewEvaluation.value]);
+
+  const graphicsInterpretation = useMemo(() => interpretGraphics(graphicsEvaluation.value), [
+    graphicsEvaluation.value
+  ]);
+
+  const preparedGraphics = useMemo(
+    () => prepareGraphics(viewInterpretation.extent, graphicsInterpretation.layers),
+    [viewInterpretation.extent, graphicsInterpretation.layers]
+  );
+
+  const drawStateRef = useRef<{ preparedGraphics: PreparedGraphics; extent: ViewExtent | null }>({
+    preparedGraphics,
+    extent: viewInterpretation.extent
+  });
+  const rafRef = useRef<number | null>(null);
+
+  const requestFrame = useCallback((force?: boolean) => {
+    if (rafRef.current !== null) {
+      if (force) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      } else {
+        return;
+      }
+    }
+    rafRef.current = window.requestAnimationFrame(() => {
+      rafRef.current = null;
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        return;
+      }
+      const context = canvas.getContext('2d');
+      if (!context) {
+        return;
+      }
+      const { preparedGraphics: latestGraphics, extent } = drawStateRef.current;
+      const warnings: string[] = [];
+      drawScene(canvas, context, extent, latestGraphics, warnings, 48);
+      setRenderWarnings(warnings);
+    });
+  }, [setRenderWarnings]);
+
+  const drawImmediate = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return;
+    }
+    const { preparedGraphics: latestGraphics, extent } = drawStateRef.current;
+    const warnings: string[] = [];
+    drawScene(canvas, context, extent, latestGraphics, warnings, 48);
+    setRenderWarnings(warnings);
+  }, [setRenderWarnings]);
+
+  useEffect(() => {
+    drawStateRef.current = {
+      preparedGraphics,
+      extent: viewInterpretation.extent
+    };
+    if (canvasRef.current) {
+      requestFrame(true);
+      drawImmediate();
+    }
+  }, [preparedGraphics, viewInterpretation.extent, requestFrame, drawImmediate]);
+
+  useEffect(() => () => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     const wrapper = canvasWrapperRef.current;
@@ -389,6 +473,8 @@ const App = (): JSX.Element => {
         }
         return { cssWidth, cssHeight, dpr };
       });
+
+      requestFrame();
     };
 
     updateCanvasSize();
@@ -401,42 +487,7 @@ const App = (): JSX.Element => {
     return () => {
       observer.disconnect();
     };
-  }, []);
-
-  const viewEvaluation = useMemo<EvaluationResult>(() => evaluateExpression(providerRef.current, viewExpression), [
-    viewExpression
-  ]);
-
-  const graphicsEvaluation = useMemo<EvaluationResult>(
-    () => evaluateExpression(providerRef.current, graphicsExpression),
-    [graphicsExpression]
-  );
-
-  const viewInterpretation = useMemo(() => interpretView(viewEvaluation.value), [viewEvaluation.value]);
-
-  const graphicsInterpretation = useMemo(() => interpretGraphics(graphicsEvaluation.value), [
-    graphicsEvaluation.value
-  ]);
-
-  const preparedGraphics = useMemo(
-    () => prepareGraphics(viewInterpretation.extent, graphicsInterpretation.layers),
-    [viewInterpretation.extent, graphicsInterpretation.layers]
-  );
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      return;
-    }
-    const context = canvas.getContext('2d');
-    if (!context) {
-      return;
-    }
-
-    const warnings: string[] = [];
-    drawScene(canvas, context, viewInterpretation.extent, preparedGraphics, warnings, 48);
-    setRenderWarnings(warnings);
-  }, [canvasSize, preparedGraphics, viewInterpretation.extent]);
+  }, [requestFrame]);
 
   const unknownTypesWarning =
     graphicsInterpretation.unknownTypes.length > 0
@@ -499,16 +550,16 @@ const App = (): JSX.Element => {
         <header className="panel-heading">Expressions</header>
         <div className="panel-body panel-body-right">
           <div className="form-section">
-            <label htmlFor="view-expression" className="input-label">
+            <label className="input-label" htmlFor="view-expression-editor">
               View extent expression
             </label>
-            <textarea
-              id="view-expression"
-              className="expression-input"
-              value={viewExpression}
-              onChange={(event) => setViewExpression(event.target.value)}
-              spellCheck={false}
-            />
+            <div className="editor-container">
+              <FuncScriptEditor
+                value={viewExpression}
+                onChange={setViewExpression}
+                minHeight={180}
+              />
+            </div>
             <StatusMessage
               error={viewEvaluation.error}
               warning={viewInterpretation.warning}
@@ -517,16 +568,16 @@ const App = (): JSX.Element => {
           </div>
 
           <div className="form-section">
-            <label htmlFor="graphics-expression" className="input-label">
+            <label className="input-label" htmlFor="graphics-expression-editor">
               Graphics expression
             </label>
-            <textarea
-              id="graphics-expression"
-              className="expression-input expression-input-large"
-              value={graphicsExpression}
-              onChange={(event) => setGraphicsExpression(event.target.value)}
-              spellCheck={false}
-            />
+            <div className="editor-container editor-container-large">
+              <FuncScriptEditor
+                value={graphicsExpression}
+                onChange={setGraphicsExpression}
+                minHeight={240}
+              />
+            </div>
             <StatusMessage
               error={graphicsEvaluation.error}
               warning={graphicsInterpretation.warning ?? unknownTypesWarning}

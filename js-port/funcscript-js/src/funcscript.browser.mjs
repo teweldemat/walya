@@ -1,4 +1,4 @@
-import * as parserModuleRaw from './parser/funcscript-parser.js';
+import * as parserModuleRaw from './parser/funcscript-parser.mjs';
 import * as dataProvidersModule from './core/data-provider.js';
 import * as valueModuleRaw from './core/value.js';
 import * as fstypesModuleRaw from './core/fstypes.js';

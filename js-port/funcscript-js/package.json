@@ -17,8 +17,8 @@
     },
     "./parser": {
       "types": "./src/parser/funcscript-parser.d.ts",
-      "require": "./src/parser/funcscript-parser.js",
-      "import": "./src/parser/funcscript-parser.js"
+      "require": "./src/parser/funcscript-parser.cjs",
+      "import": "./src/parser/funcscript-parser.mjs"
     },
     "./browser": {
       "types": "./src/funcscript.browser.d.ts",
