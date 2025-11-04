@@ -6,7 +6,7 @@ namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static ValueParseResult<KvcExpression> GetKvcExpression(ParseContext context, IList<ParseNode> siblings,
+        static ParseBlockResult GetKvcExpression(ParseContext context, IList<ParseNode> siblings,
             bool nakedMode, int index)
         {
             if (context == null)
@@ -21,7 +21,7 @@ namespace FuncScript.Core
             {
                 var afterOpen = GetToken(context, currentIndex,nodeItems,ParseNodeType.OpenBrace, "{");
                 if (afterOpen == currentIndex)
-                    return new ValueParseResult<KvcExpression>(index, null, null);
+                    return new ParseBlockResult(index, null);
 
                 currentIndex = afterOpen;
             }
@@ -42,7 +42,7 @@ namespace FuncScript.Core
                     {
                         var errorPos = currentIndex;
                         errors.Add(new SyntaxErrorData(errorPos, nodeItems.Count, "Duplicate return statement"));
-                        return new ValueParseResult<KvcExpression>(index, null, null);
+                        return new ParseBlockResult(index, null);
                     }
 
                     returnExpression = itemResult.Value.ValueExpression;
@@ -66,14 +66,14 @@ namespace FuncScript.Core
                 if (afterClose == currentIndex)
                 {
                     errors.Add(new SyntaxErrorData(currentIndex, 0, "'}' expected"));
-                    return new ValueParseResult<KvcExpression>(index, null, null);
+                    return new ParseBlockResult(index, null);
                 }
 
                 currentIndex = afterClose;
             }
             else if (keyValues.Count == 0 && returnExpression == null)
             {
-                return new ValueParseResult<KvcExpression>(index, null, null);
+                return new ParseBlockResult(index, null);
             }
 
             var kvcExpression = new KvcExpression();
@@ -81,12 +81,12 @@ namespace FuncScript.Core
             if (validationError != null)
             {
                 errors.Add(new SyntaxErrorData(index, currentIndex - index, validationError));
-                return new ValueParseResult<KvcExpression>(index, null, null);
+                return new ParseBlockResult(index, null);
             }
 
             var parseNode = new ParseNode(ParseNodeType.KeyValueCollection, index, currentIndex - index, nodeItems);
             siblings.Add(parseNode);
-            return new ValueParseResult<KvcExpression>(currentIndex, kvcExpression);
+            return new ParseBlockResult(currentIndex, kvcExpression);
         }
     }
 }

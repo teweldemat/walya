@@ -57,14 +57,14 @@ namespace FuncScript.Core
 
                 var selectorChildren = new List<ParseNode>();
                 var selectorResult = GetKvcExpression(context, selectorChildren, false, currentIndex);
-                if (selectorResult.HasProgress(currentIndex) && selectorResult.Value != null)
+                if (selectorResult.HasProgress(currentIndex) && selectorResult.ExpressionBlock is KvcExpression kvc)
                 {
                     var selector = new SelectorExpression
                     {
                         Source = expression,
-                        Selector = selectorResult.Value,
-                        Pos = currentIndex,
-                        Length = selectorResult.NextIndex - currentIndex
+                        Selector = kvc,
+                        Pos = expression.Pos,
+                        Length = selectorResult.NextIndex - expression.Pos
                     };
 
                     expression = selector;

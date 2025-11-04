@@ -17,20 +17,22 @@ namespace FuncScript.Core
             var errors = context.ErrorsList;
 
             var keyErrors = new List<SyntaxErrorData>();
-            var currentIndex = GetSimpleString(context,childNodes, index, out var name,  keyErrors);
+            var stringResult = GetSimpleString(context,childNodes, index, keyErrors);
+            var name = stringResult.Value;
+            var currentIndex = stringResult.NextIndex;
             if (currentIndex == index)
             {
                 var iden = GetIdentifier(context, childNodes, index);
                 currentIndex = iden.NextIndex;
                 if (currentIndex == index)
-                    return new ValueParseResult<KvcExpression.KeyValueExpression>(index, null, null);
+                    return new ValueParseResult<KvcExpression.KeyValueExpression>(index, null);
 
                 name = iden.Iden;
             }
 
             var afterColon = GetToken(context, currentIndex,childNodes,ParseNodeType.Colon, ":");
             if (afterColon == currentIndex)
-                return new ValueParseResult<KvcExpression.KeyValueExpression>(index, null, null);
+                return new ValueParseResult<KvcExpression.KeyValueExpression>(index, null);
 
             currentIndex = afterColon;
 
@@ -39,7 +41,7 @@ namespace FuncScript.Core
             if (!valueResult.HasProgress(currentIndex) || valueResult.ExpressionBlock == null)
             {
                 errors.Add(new SyntaxErrorData(currentIndex, 0, "value expression expected"));
-                return new ValueParseResult<KvcExpression.KeyValueExpression>(index, null, null);
+                return new ValueParseResult<KvcExpression.KeyValueExpression>(index, null);
             }
 
             currentIndex = valueResult.NextIndex;

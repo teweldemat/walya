@@ -76,6 +76,7 @@ function colorParseTree(node) {
 const Engine = {
   evaluate,
   colorParseTree,
+  FuncScriptParser,
   DefaultFsDataProvider,
   FsDataProvider,
   MapDataProvider,
@@ -106,6 +107,7 @@ const Engine = {
 exports.Engine = Engine;
 exports.evaluate = evaluate;
 exports.colorParseTree = colorParseTree;
+exports.FuncScriptParser = FuncScriptParser;
 exports.DefaultFsDataProvider = DefaultFsDataProvider;
 exports.FsDataProvider = FsDataProvider;
 exports.MapDataProvider = MapDataProvider;

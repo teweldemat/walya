@@ -16,85 +16,53 @@ namespace FuncScript.Core
             var stringTemplateResult = GetStringTemplate(context, siblings, index);
             if (stringTemplateResult.HasProgress(index) && stringTemplateResult.ExpressionBlock != null)
             {
-                var block = stringTemplateResult.ExpressionBlock;
-                block.Pos = index;
-                block.Length = stringTemplateResult.NextIndex - index;
-                return new ParseBlockResult(stringTemplateResult.NextIndex, block);
+                return stringTemplateResult;
             }
 
             // Simple string literal
-            var stringIndex = GetSimpleString(context,siblings, index, out var text,  errors);
-            if (stringIndex > index)
+            var stringResult = GetSimpleString(context,siblings, index, errors);
+            if (stringResult.NextIndex > index)
             {
-                var block = new LiteralBlock(text)
+                var block = new LiteralBlock(stringResult.Value)
                 {
-                    Pos = index,
-                    Length = stringIndex - index
+                    Pos = stringResult.StartIndex,
+                    Length = stringResult.Length
                 };
-                return new ParseBlockResult(stringIndex, block);
+                return new ParseBlockResult(stringResult.NextIndex, block);
             }
 
             // Numeric literal
-            var numberIndex = GetNumber(context,siblings, index, out var numberValue, out var numberNode, errors);
-            if (numberIndex > index)
+            var numberResult = GetNumber(context,siblings, index, errors);
+            if (numberResult.NextIndex > index)
             {
-                var block = new LiteralBlock(numberValue)
+                var block = new LiteralBlock(numberResult.Value)
                 {
-                    Pos = index,
-                    Length = numberIndex - index
+                    Pos = numberResult.StartIndex,
+                    Length = numberResult.Length
                 };
-                return new ParseBlockResult(numberIndex, block);
+                return new ParseBlockResult(numberResult.NextIndex, block);
             }
 
             // List expression
             var listResult = GetListExpression(context, siblings, index);
-            if (listResult.HasProgress(index) && listResult.Value != null)
-            {
-                var listExpression = listResult.Value;
-                listExpression.Pos = index;
-                listExpression.Length = listResult.NextIndex - index;
-                return new ParseBlockResult(listResult.NextIndex, listExpression);
-            }
+            if (listResult.HasProgress(index) && listResult.ExpressionBlock != null)
+                return listResult;
 
             // Key-value collection or selector definition
             var kvcResult = GetKvcExpression(context, siblings, false, index);
-            if (kvcResult.HasProgress(index) && kvcResult.Value != null)
-            {
-                var kvcExpression = kvcResult.Value;
-                kvcExpression.Pos = index;
-                kvcExpression.Length = kvcResult.NextIndex - index;
-                return new ParseBlockResult(kvcResult.NextIndex, kvcExpression);
-            }
+            if (kvcResult.HasProgress(index) && kvcResult.ExpressionBlock != null) return kvcResult;
 
             // If-then-else
             var ifResult = GetIfThenElseExpression(context, siblings, index);
-            if (ifResult.HasProgress(index) && ifResult.ExpressionBlock != null)
-            {
-                var block = ifResult.ExpressionBlock;
-                block.Pos = index;
-                block.Length = ifResult.NextIndex - index;
-                return new ParseBlockResult(ifResult.NextIndex, block);
-            }
+            if (ifResult.HasProgress(index) && ifResult.ExpressionBlock != null) return ifResult;
 
             // Case expression
             var caseResult = GetCaseExpression(context, siblings, index);
-            if (caseResult.HasProgress(index) && caseResult.ExpressionBlock != null)
-            {
-                var block = caseResult.ExpressionBlock;
-                block.Pos = index;
-                block.Length = caseResult.NextIndex - index;
-                return new ParseBlockResult(caseResult.NextIndex, block);
-            }
+            if (caseResult.HasProgress(index) && caseResult.ExpressionBlock != null) return caseResult;
 
             // Switch expression
             var switchResult = GetSwitchExpression(context, siblings, index);
-            if (switchResult.HasProgress(index) && switchResult.ExpressionBlock != null)
-            {
-                var block = switchResult.ExpressionBlock;
-                block.Pos = index;
-                block.Length = switchResult.NextIndex - index;
-                return new ParseBlockResult(switchResult.NextIndex, block);
-            }
+            if (switchResult.HasProgress(index) && switchResult.ExpressionBlock != null) return switchResult;
 
             // Lambda expression
             var lambdaResult = GetLambdaExpression(context, siblings, index);
@@ -112,10 +80,12 @@ namespace FuncScript.Core
             var keywordIndex = GetKeyWordLiteral(context,siblings, index, out var keywordValue, out var keywordNode);
             if (keywordIndex > index)
             {
+                var literalPos = keywordNode?.Pos ?? index;
+                var literalLength = keywordNode?.Length ?? (keywordIndex - literalPos);
                 var block = new LiteralBlock(keywordValue)
                 {
-                    Pos = index,
-                    Length = keywordIndex - index
+                    Pos = literalPos,
+                    Length = literalLength
                 };
                 return new ParseBlockResult(keywordIndex, block);
             }
@@ -127,8 +97,8 @@ namespace FuncScript.Core
             {
                 var reference = new ReferenceBlock(iden.Iden)
                 {
-                    Pos = index,
-                    Length = identifierIndex - index
+                    Pos = iden.StartIndex,
+                    Length = iden.Length
                 };
                 return new ParseBlockResult(identifierIndex, reference);
             }
@@ -136,22 +106,11 @@ namespace FuncScript.Core
             // Expression in parenthesis
             var parenthesisResult = GetExpInParenthesis(context, siblings, index);
             if (parenthesisResult.HasProgress(index) && parenthesisResult.ExpressionBlock != null)
-            {
-                var block = parenthesisResult.ExpressionBlock;
-                block.Pos = index;
-                block.Length = parenthesisResult.NextIndex - index;
                 return parenthesisResult;
-            }
-
+            
             // Prefix operator
             var prefixResult = GetPrefixOperator(context, siblings, index);
-            if (prefixResult.HasProgress(index) && prefixResult.ExpressionBlock != null)
-            {
-                var block = prefixResult.ExpressionBlock;
-                block.Pos = index;
-                block.Length = prefixResult.NextIndex - index;
-                return prefixResult;
-            }
+            if (prefixResult.HasProgress(index) && prefixResult.ExpressionBlock != null) return prefixResult;
 
             return ParseBlockResult.NoAdvance(index);
         }

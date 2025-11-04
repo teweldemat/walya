@@ -46,8 +46,8 @@ namespace FuncScript.Core
                     CommitNodeBuffer(siblings, identifierBuffer);
                     var reference = new ReferenceBlock(iden.Iden, iden.IdenLower, false)
                     {
-                        Pos = index,
-                        Length = identifierIndex - index
+                        Pos = iden.StartIndex,
+                        Length = iden.Length
                     };
                     var item = new KvcExpression.KeyValueExpression
                     {
@@ -60,22 +60,22 @@ namespace FuncScript.Core
 
                 var stringErrors = new List<SyntaxErrorData>();
                 var stringBuffer = CreateNodeBuffer(siblings);
-                var stringIndex = GetSimpleString(context, stringBuffer, index, out var stringIden, stringErrors);
-                if (stringIndex > index)
+                var stringResult = GetSimpleString(context, stringBuffer, index, stringErrors);
+                if (stringResult.NextIndex > index)
                 {
                     CommitNodeBuffer(siblings, stringBuffer);
-                    var reference = new ReferenceBlock(stringIden, stringIden.ToLowerInvariant(), false)
+                    var reference = new ReferenceBlock(stringResult.Value, stringResult.Value.ToLowerInvariant(), false)
                     {
-                        Pos = index,
-                        Length = stringIndex - index
+                        Pos = stringResult.StartIndex,
+                        Length = stringResult.Length
                     };
                     var item = new KvcExpression.KeyValueExpression
                     {
-                        Key = stringIden,
-                        KeyLower = stringIden.ToLowerInvariant(),
+                        Key = stringResult.Value,
+                        KeyLower = stringResult.Value.ToLowerInvariant(),
                         ValueExpression = reference
                     };
-                    return new ValueParseResult<KvcExpression.KeyValueExpression>(stringIndex, item);
+                    return new ValueParseResult<KvcExpression.KeyValueExpression>(stringResult.NextIndex, item);
                 }
             }
 

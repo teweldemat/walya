@@ -13,16 +13,10 @@ import {
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { foldGutter, foldKeymap, foldService } from '@codemirror/language';
 import { lineNumbers } from '@codemirror/view';
-import { Engine } from '@tewelde/funcscript/browser';
+import { Engine, FuncScriptParser } from '@tewelde/funcscript/browser';
 import type { DefaultFsDataProvider } from '@tewelde/funcscript/browser';
 import type { ColoredSegment } from './funcscriptColoring.js';
 import { computeColoredSegments } from './funcscriptColoring.js';
-
-// funcscript parser exposed via CommonJS build without type declarations
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-import * as parserModule from '@tewelde/funcscript/parser';
-
-const { FuncScriptParser } = parserModule as { FuncScriptParser: any };
 
 export const VSCODE_FONT_STACK =
   '"Cascadia Code", "Fira Code", "Fira Mono", "Menlo", "Consolas", "Liberation Mono", "Courier New", monospace';
@@ -98,6 +92,16 @@ const getChildNodes = (node: RawParseNode): RawParseNode[] => {
   return Array.isArray(value) ? (value as RawParseNode[]) : [];
 };
 
+const getNodeType = (node: RawParseNode): string => {
+  const type = node.NodeType ?? node.nodeType ?? node.Type ?? node.type;
+  return typeof type === 'string' ? type : '';
+};
+
+const isWhitespaceNode = (node: RawParseNode) => {
+  const nodeType = getNodeType(node).trim().toLowerCase();
+  return nodeType.length > 0 && nodeType.includes('whitespace');
+};
+
 const collectFoldRanges = (root: RawParseNode, doc: EditorState['doc']): FoldRange[] => {
   if (doc.length === 0) {
     return [];
@@ -116,12 +120,29 @@ const collectFoldRanges = (root: RawParseNode, doc: EditorState['doc']): FoldRan
     if (range) {
       const { start, end } = range;
       if (end > start) {
-        const startPos = Math.min(start, doc.length - 1);
-        const endPos = Math.max(startPos, Math.min(end - 1, doc.length - 1));
+        const isWhitespace = isWhitespaceNode(current);
+        if (doc.length === 0) {
+          continue;
+        }
+
+        let startPos = Math.min(start, doc.length - 1);
+        let endPos = Math.max(startPos, Math.min(end - 1, doc.length - 1));
+
+        if (isWhitespace) {
+          const clampedStart = Math.max(0, Math.min(start, doc.length));
+          const clampedEnd = Math.max(clampedStart, Math.min(end, doc.length));
+          startPos = Math.min(clampedStart + 1, doc.length);
+          if (startPos > clampedEnd) {
+            startPos = clampedEnd;
+          }
+          endPos = Math.max(startPos, clampedEnd);
+        }
+
         const startLine = doc.lineAt(startPos);
-        const endLine = doc.lineAt(endPos);
+        const endLine = doc.lineAt(Math.max(startPos, endPos));
+
         if (startLine.number < endLine.number) {
-          const from = startLine.to;
+          const from = isWhitespace ? startLine.from : startLine.to;
           const to = endLine.from;
           if (to > from) {
             const existing = byLine.get(startLine.from);

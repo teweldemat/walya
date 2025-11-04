@@ -62,10 +62,16 @@ namespace FuncScript.Core
             var currentIndex = afterIdentifier;
 
             var function = context.Provider.Get(oper);
+            var memberLiteral = new LiteralBlock(iden.Iden)
+            {
+                Pos = iden.StartIndex,
+                Length = iden.Length
+            };
+
             var expression = new FunctionCallExpression
             {
                 Function = new LiteralBlock(function),
-                Parameters = new ExpressionBlock[] { source, new LiteralBlock(iden.Iden) },
+                Parameters = new ExpressionBlock[] { source, memberLiteral },
                 Pos = source.Pos,
                 Length = currentIndex - source.Pos
             };

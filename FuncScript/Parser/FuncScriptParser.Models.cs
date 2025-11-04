@@ -76,12 +76,6 @@ namespace FuncScript.Core
                 Value = value;
             }
 
-            public ValueParseResult(int nextIndex, T value, ExpressionBlock expressionBlock)
-                : base(nextIndex)
-            {
-                Value = value;
-            }
-
             public T Value { get; }
         }
 

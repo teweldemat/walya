@@ -30,7 +30,7 @@ namespace FuncScript.Core
                 return new ValueParseResult<(string symbol, IFsFunction function)>(nextIndex, (op, function));
             }
 
-            return new ValueParseResult<(string symbol, IFsFunction function)>(index, default, null);
+            return new ValueParseResult<(string symbol, IFsFunction function)>(index, default);
         }
     }
 }

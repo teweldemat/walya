@@ -26,7 +26,6 @@ namespace FuncScript.Core
 
             operands.Add(firstOperandResult.ExpressionBlock);
             var currentIndex = firstOperandResult.NextIndex;
-            var identifierStart = currentIndex;
             var iden=GetIdentifier(context,buffer, currentIndex);
             var afterIdentifier = iden.NextIndex;
             if (afterIdentifier == currentIndex)
@@ -82,8 +81,8 @@ namespace FuncScript.Core
 
             var functionLiteral = new LiteralBlock(function)
             {
-                Pos = identifierStart,
-                Length = afterIdentifier-identifierStart
+                Pos = iden.StartIndex,
+                Length = iden.Length
             };
 
             var firstNode = buffer.FirstOrDefault(n => n.NodeType != ParseNodeType.WhiteSpace);

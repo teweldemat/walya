@@ -61,7 +61,7 @@ namespace FuncScript.Core
         {
 
             var nextIndex = index;
-            while (index < exp.Length && isCharWhiteSpace(exp[index]))
+            while (nextIndex < exp.Length && isCharWhiteSpace(exp[nextIndex]))
             {
                 nextIndex++;
             }

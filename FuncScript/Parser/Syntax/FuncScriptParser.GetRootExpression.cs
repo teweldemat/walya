@@ -14,10 +14,10 @@ namespace FuncScript.Core
             var kvcErrors = new List<SyntaxErrorData>();
             var kvcContext = context.CreateChild(context.Expression, kvcErrors);
             var kvcResult = GetKvcExpression(kvcContext, nodes, true, index);
-            if (kvcResult.HasProgress(index) && kvcResult.Value != null)
+            if (kvcResult.HasProgress(index) && kvcResult.ExpressionBlock != null)
             {
                 context.ErrorsList.AddRange(kvcErrors);
-                var kvcExpression = kvcResult.Value;
+                var kvcExpression = kvcResult.ExpressionBlock;
                 if (kvcExpression.Length == 0)
                 {
                     kvcExpression.Pos = index;

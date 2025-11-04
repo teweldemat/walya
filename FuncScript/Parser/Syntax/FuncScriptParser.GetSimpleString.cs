@@ -1,42 +1,76 @@
+using System;
+using System.Collections.Generic;
 using System.Text;
 
 namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static int GetSimpleString(ParseContext context,List<ParseNode> siblings, int index, out String str,
+        public class SimpleStringResult
+        {
+            public SimpleStringResult(int nextIndex, string value, int startIndex, int length, ParseNode parseNode)
+            {
+                NextIndex = nextIndex;
+                Value = value;
+                StartIndex = startIndex;
+                Length = length;
+                ParseNode = parseNode;
+            }
+
+            public int NextIndex { get; }
+
+            public string Value { get; }
+
+            public int StartIndex { get; }
+
+            public int Length { get; }
+
+            public ParseNode ParseNode { get; }
+        }
+
+        static SimpleStringResult GetSimpleString(ParseContext context,List<ParseNode> siblings, int index,
             List<SyntaxErrorData> serrors)
         {
-            str = null;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
 
             if (index >= context.Expression.Length)
-                return index;
+                return new SimpleStringResult(index, null, index, 0, null);
 
             var nodes = new List<ParseNode>();
             var currentIndex = SkipSpace(context,nodes, index);
             if (currentIndex >= context.Expression.Length)
-                return index;
+                return new SimpleStringResult(index, null, index, 0, null);
 
-            var i = GetSimpleString(context,nodes, "\"", currentIndex, out str, serrors);
-            if (i == currentIndex)
-                i = GetSimpleString(context,nodes, "'", currentIndex, out str, serrors);
+            var result = GetSimpleString(context,nodes, "\"", currentIndex, serrors);
+            if (result.NextIndex == currentIndex)
+                result = GetSimpleString(context,nodes, "'", currentIndex, serrors);
 
-            if (i == currentIndex)
+            if (result.NextIndex == currentIndex)
             {
-                str = null;
-                return index;
+                return new SimpleStringResult(index, null, index, 0, null);
             }
+
             siblings.AddRange(nodes);
-            
-            return i;
+            return result;
         }
 
-        static int GetSimpleString(ParseContext context,IList<ParseNode> siblings, string delimator, int index, out String str, List<SyntaxErrorData> serrors)
+        static SimpleStringResult GetSimpleString(ParseContext context,IList<ParseNode> siblings, string delimator, int index, List<SyntaxErrorData> serrors)
         {
-            str = null;
-            var i = GetLiteralMatch(context.Expression, index, delimator);
-            if (i == index)
-                return index;
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+            if (siblings == null)
+                throw new ArgumentNullException(nameof(siblings));
+            if (delimator == null)
+                throw new ArgumentNullException(nameof(delimator));
+            if (serrors == null)
+                throw new ArgumentNullException(nameof(serrors));
+
+            var nextIndex = GetLiteralMatch(context.Expression, index, delimator);
+            if (nextIndex == index)
+                return new SimpleStringResult(index, null, index, 0, null);
+
+            var i = nextIndex;
             int i2;
             var sb = new StringBuilder();
             while (true)
@@ -99,14 +133,14 @@ namespace FuncScript.Core
             if (i2 == i)
             {
                 serrors.Add(new SyntaxErrorData(i, 0, $"'{delimator}' expected"));
-                return index;
+                return new SimpleStringResult(index, null, index, 0, null);
             }
 
             i = i2;
-            str = sb.ToString();
+            var str = sb.ToString();
             var parseNode = new ParseNode(ParseNodeType.LiteralString, index, i - index);
             siblings.Add(parseNode);
-            return i;
+            return new SimpleStringResult(i, str, parseNode.Pos, parseNode.Length, parseNode);
         }
 
 

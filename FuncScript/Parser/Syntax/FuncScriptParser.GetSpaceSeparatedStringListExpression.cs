@@ -20,9 +20,12 @@ namespace FuncScript.Core
             var nodeListItems = new List<ParseNode>();
 
             string firstItem;
-            var i2 = GetSimpleString(context,nodeListItems, i, out firstItem, errors);
+            var firstStringResult = GetSimpleString(context,nodeListItems, i, errors);
+            var i2 = firstStringResult.NextIndex;
             if (i2 == i)
                 i2 = GetSpaceLessString(context,nodeListItems, i, out firstItem);
+            else
+                firstItem = firstStringResult.Value;
 
             if (i2 > i)
             {
@@ -36,9 +39,13 @@ namespace FuncScript.Core
 
                     i = i2;
 
-                    i2 = GetSimpleString(context,nodeListItems, i, out var otherItem,  errors);
+                    var stringResult = GetSimpleString(context,nodeListItems, i, errors);
+                    i2 = stringResult.NextIndex;
+                    string otherItem;
                     if (i2 == i)
                         i2 = GetSpaceLessString(context,nodeListItems, i, out otherItem);
+                    else
+                        otherItem = stringResult.Value;
 
                     if (i2 == i)
                         break;
@@ -49,7 +56,7 @@ namespace FuncScript.Core
             }
 
             if (listItems.Count == 0)
-                return new ValueParseResult<IReadOnlyList<string>>(i, null, null);
+                return new ValueParseResult<IReadOnlyList<string>>(i, null);
 
             var parseNode = new ParseNode(ParseNodeType.List, index, i - index, nodeListItems);
             siblings.Add(parseNode);

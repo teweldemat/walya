@@ -198,6 +198,7 @@ export declare const Engine: {
   evaluate: typeof evaluate;
   evaluateTemplate: typeof evaluateTemplate;
   colorParseTree: typeof colorParseTree;
+  FuncScriptParser: typeof import('./parser/funcscript-parser').FuncScriptParser;
   DefaultFsDataProvider: typeof DefaultFsDataProvider;
   FsDataProvider: typeof FsDataProvider;
   MapDataProvider: typeof MapDataProvider;

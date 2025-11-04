@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using FuncScript.Core;
 using FuncScript.Error;
@@ -51,5 +52,25 @@ public class BugAnalysis
 ";
         var res = Engine.Evaluate(exp);
         Assert.AreEqual(9, res);
+    }
+
+    [Test]
+    public void EvaluateSpateSeparatedExpression()
+    {
+        var exp = "./cis10.api/bin/Release/net6.0/cis10.api.dll cis10.api.Cis10ApplicationScopeFactory ./cis10.ef/Seeds/min/land_tran/land_tran_config --isolated";
+        var res = Engine.EvaluateSpaceSeparatedList(exp);
+        Assert.That(res, Is.InstanceOf<IEnumerable<string>>());
+        var list = (IEnumerable<string>)res;
+        Assert.That(list.Count(),Is.EqualTo(4));
+    }
+
+    [Test]
+    public void Bug20251104()
+    {
+        var exp = @"{
+    return if true then 2 else 1;
+}";
+        var res = Engine.Evaluate(exp);
+        Assert.That(res,Is.EqualTo(2));
     }
 }

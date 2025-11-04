@@ -18,11 +18,11 @@ namespace FuncScript.Core
             var parameterNodes = new List<ParseNode>();
             var currentIndex = GetIdentifierList(context, index, parameterNodes, out var parameters, out var parametersNode);
             if (currentIndex == index)
-                return new ValueParseResult<ExpressionFunction>(index, null, null);
+                return new ValueParseResult<ExpressionFunction>(index, null);
 
             var arrowIndex = currentIndex;
             if (arrowIndex >= exp.Length - 1)
-                return new ValueParseResult<ExpressionFunction>(index, null, null);
+                return new ValueParseResult<ExpressionFunction>(index, null);
 
             var childNodes = new List<ParseNode>();
             if (parametersNode != null)
@@ -33,7 +33,7 @@ namespace FuncScript.Core
             if (afterArrow == arrowIndex)
             {
                 errors.Add(new SyntaxErrorData(arrowIndex, 0, "'=>' expected"));
-                return new ValueParseResult<ExpressionFunction>(index, null, null);
+                return new ValueParseResult<ExpressionFunction>(index, null);
             }
 
             currentIndex = afterArrow;
@@ -45,7 +45,7 @@ namespace FuncScript.Core
             if (!bodyResult.HasProgress(currentIndex) || bodyResult.ExpressionBlock == null)
             {
                 errors.Add(new SyntaxErrorData(currentIndex, 0, "defination of lambda expression expected"));
-                return new ValueParseResult<ExpressionFunction>(index, null, null);
+                return new ValueParseResult<ExpressionFunction>(index, null);
             }
 
             currentIndex = bodyResult.NextIndex;

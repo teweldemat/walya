@@ -469,16 +469,16 @@ namespace FuncScript.Test
             
             Assert.That(func.Parameters.Length,Is.EqualTo(2));
 
-            Assert.That(func.Function.Pos,Is.EqualTo(1+part1.Length));
-            Assert.That(func.Function.Length,Is.EqualTo(1+part2.Length));
+            Assert.That(func.Function.Pos,Is.EqualTo(1+part1.Length+1));
+            Assert.That(func.Function.Length,Is.EqualTo(part2.Length));
 
 
             
             Assert.That(func.Parameters[0].Pos,Is.EqualTo(0));
             Assert.That(func.Parameters[0].Length,Is.EqualTo(1+part1.Length));
 
-            Assert.That(func.Parameters[1].Pos,Is.EqualTo(1+part1.Length+1+part2.Length));
-            Assert.That(func.Parameters[1].Length,Is.EqualTo(1+part3.Length));
+            Assert.That(func.Parameters[1].Pos,Is.EqualTo(1+part1.Length+1+part2.Length+1));
+            Assert.That(func.Parameters[1].Length,Is.EqualTo(part3.Length));
 
         }
 

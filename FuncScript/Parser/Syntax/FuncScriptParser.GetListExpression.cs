@@ -6,7 +6,7 @@ namespace FuncScript.Core
 {
     public partial class FuncScriptParser
     {
-        static ValueParseResult<ListExpression> GetListExpression(ParseContext context, IList<ParseNode> siblings,
+        static ParseBlockResult GetListExpression(ParseContext context, IList<ParseNode> siblings,
             int index)
         {
             if (context == null)
@@ -18,7 +18,7 @@ namespace FuncScript.Core
             var currentIndex = index;
             var afterOpen = GetToken(context, currentIndex,nodes,ParseNodeType.OpenBrace, "[");
             if (afterOpen == currentIndex)
-                return new ValueParseResult<ListExpression>(index, null, null);
+                return new ParseBlockResult(index, null);
 
 
             var listStart = nodes.Count > 0 ? nodes[0].Pos : currentIndex;
@@ -54,14 +54,19 @@ namespace FuncScript.Core
             if (afterClose == currentIndex)
             {
                 errors.Add(new SyntaxErrorData(currentIndex, 0, "']' expected"));
-                return new ValueParseResult<ListExpression>(index, null, null);
+                return new ParseBlockResult(index, null);
             }
 
             currentIndex = afterClose;
-            var listExpression = new ListExpression { ValueExpressions = items.ToArray() };
+            var listExpression = new ListExpression
+            {
+                ValueExpressions = items.ToArray(),
+                Pos = listStart,
+                Length = currentIndex - listStart
+            };
             var parseNode = new ParseNode(ParseNodeType.List, listStart, currentIndex - listStart, nodes);
             siblings.Add(parseNode);
-            return new ValueParseResult<ListExpression>(currentIndex, listExpression);
+            return new ParseBlockResult(currentIndex, listExpression);
         }
     }
 }

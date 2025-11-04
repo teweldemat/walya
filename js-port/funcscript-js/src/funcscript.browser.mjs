@@ -98,6 +98,7 @@ function colorParseTree(node) {
 const Engine = {
   evaluate,
   colorParseTree,
+  FuncScriptParser,
   DefaultFsDataProvider,
   FsDataProvider,
   MapDataProvider,
@@ -129,6 +130,7 @@ const funcscript = {
   Engine,
   evaluate,
   colorParseTree,
+  FuncScriptParser,
   DefaultFsDataProvider,
   FsDataProvider,
   MapDataProvider,
@@ -160,6 +162,7 @@ export {
   Engine,
   evaluate,
   colorParseTree,
+  FuncScriptParser,
   DefaultFsDataProvider,
   FsDataProvider,
   MapDataProvider,
