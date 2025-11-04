@@ -1979,3 +1979,6 @@ module.exports = {
   resetIdentifierMetrics,
   resetLiteralMatchMetrics
 };
+
+module.exports.__esModule = true;
+module.exports.default = module.exports;

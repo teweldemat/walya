@@ -109,26 +109,19 @@
   color: rgba(148, 163, 184, 0.85);
 }
 
-.expression-input {
-  min-height: 140px;
-  padding: 14px 16px;
+.editor-container {
   border-radius: 14px;
   border: 1px solid rgba(148, 163, 184, 0.25);
   background: rgba(2, 6, 23, 0.6);
-  color: #e2e8f0;
-  font-family: 'JetBrains Mono', 'SFMono-Regular', 'Menlo', monospace;
-  font-size: 0.95rem;
-  line-height: 1.45;
-  resize: vertical;
+  overflow: hidden;
 }
 
-.expression-input:focus {
-  outline: 2px solid #38bdf8;
-  outline-offset: 2px;
+.editor-container :global(.fs-editor) {
+  height: 100%;
 }
 
-.expression-input-large {
-  min-height: 220px;
+.editor-container-large {
+  min-height: 260px;
 }
 
 .status {

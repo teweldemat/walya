@@ -22,6 +22,7 @@ import {
 } from './graphics';
 import type { PreparedGraphics, PreparedPrimitive, PreparedTransform, ViewExtent } from './graphics';
 import './App.css';
+import { FuncScriptEditor } from '@tewelde/funcscript-editor';
 
 const MIN_LEFT_WIDTH = 260;
 const MIN_RIGHT_WIDTH = 320;
@@ -499,16 +500,16 @@ const App = (): JSX.Element => {
         <header className="panel-heading">Expressions</header>
         <div className="panel-body panel-body-right">
           <div className="form-section">
-            <label htmlFor="view-expression" className="input-label">
+            <label className="input-label" htmlFor="view-expression-editor">
               View extent expression
             </label>
-            <textarea
-              id="view-expression"
-              className="expression-input"
-              value={viewExpression}
-              onChange={(event) => setViewExpression(event.target.value)}
-              spellCheck={false}
-            />
+            <div className="editor-container">
+              <FuncScriptEditor
+                value={viewExpression}
+                onChange={setViewExpression}
+                minHeight={180}
+              />
+            </div>
             <StatusMessage
               error={viewEvaluation.error}
               warning={viewInterpretation.warning}
@@ -517,16 +518,16 @@ const App = (): JSX.Element => {
           </div>
 
           <div className="form-section">
-            <label htmlFor="graphics-expression" className="input-label">
+            <label className="input-label" htmlFor="graphics-expression-editor">
               Graphics expression
             </label>
-            <textarea
-              id="graphics-expression"
-              className="expression-input expression-input-large"
-              value={graphicsExpression}
-              onChange={(event) => setGraphicsExpression(event.target.value)}
-              spellCheck={false}
-            />
+            <div className="editor-container editor-container-large">
+              <FuncScriptEditor
+                value={graphicsExpression}
+                onChange={setGraphicsExpression}
+                minHeight={240}
+              />
+            </div>
             <StatusMessage
               error={graphicsEvaluation.error}
               warning={graphicsInterpretation.warning ?? unknownTypesWarning}
