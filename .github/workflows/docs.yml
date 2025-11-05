@@ -54,9 +54,17 @@ jobs:
             js-port/examples/fs-graphics/package-lock.json
             js-port/funcscript-studio/package-lock.json
 
+      - name: Install funcscript editor dependencies
+        working-directory: js-port/funcscript-editor
+        run: npm ci --ignore-scripts
+
+      - name: Build funcscript editor package
+        working-directory: js-port/funcscript-editor
+        run: npm run build
+
       - name: Install dependencies for fs-graphics
         working-directory: js-port/examples/fs-graphics
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Build fs-graphics demo
         working-directory: js-port/examples/fs-graphics
@@ -66,7 +74,7 @@ jobs:
 
       - name: Install dependencies for funcscript-studio
         working-directory: js-port/funcscript-studio
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Build funcscript-studio demo
         working-directory: js-port/funcscript-studio
