@@ -354,6 +354,7 @@ const createFuncScriptExtensions = (
 export type FuncScriptEditorProps = {
   value: string;
   onChange: (value: string) => void;
+  onBlur?: () => void;
   onSegmentsChange?: (segments: ColoredSegment[]) => void;
   onError?: (message: string | null) => void;
   onParseModelChange?: (model: {
@@ -368,6 +369,7 @@ export type FuncScriptEditorProps = {
 const FuncScriptEditor = ({
   value,
   onChange,
+  onBlur,
   onSegmentsChange,
   onError,
   onParseModelChange,
@@ -479,6 +481,9 @@ const FuncScriptEditor = ({
           if (update.docChanged) {
             const nextValue = update.state.doc.toString();
             onChange(nextValue);
+          }
+          if (update.focusChanged && !update.view.hasFocus && onBlur) {
+            onBlur();
           }
         })
       ]

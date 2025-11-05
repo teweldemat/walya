@@ -1,5 +1,6 @@
 import {
   ChangeEvent,
+  FocusEvent,
   KeyboardEvent,
   TouchEvent as ReactTouchEvent,
   useCallback,
@@ -31,6 +32,48 @@ const MIN_RIGHT_WIDTH = 320;
 const DEFAULT_RATIO = 0.45;
 const BACKGROUND_COLOR = '#0f172a';
 const GRID_COLOR = 'rgba(148, 163, 184, 0.2)';
+const GRAPHICS_TAB_ID = 'graphics';
+const VIEW_TAB_ID = 'view';
+
+type CustomTabState = {
+  id: string;
+  name: string;
+  expression: string;
+};
+
+const createCustomTabId = () => `custom-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
+
+const isValidTabName = (name: string) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name);
+
+const buildDefaultTabName = (existingNames: Set<string>) => {
+  let index = 1;
+  let candidate = `model${index}`;
+  while (existingNames.has(candidate.toLowerCase())) {
+    index += 1;
+    candidate = `model${index}`;
+  }
+  return candidate;
+};
+
+const getExpressionTabButtonId = (tabId: string) => {
+  if (tabId === GRAPHICS_TAB_ID) {
+    return 'graphics-expression-tab';
+  }
+  if (tabId === VIEW_TAB_ID) {
+    return 'view-expression-tab';
+  }
+  return `custom-expression-tab-${tabId}`;
+};
+
+const getExpressionTabPanelId = (tabId: string) => {
+  if (tabId === GRAPHICS_TAB_ID) {
+    return 'graphics-expression-panel';
+  }
+  if (tabId === VIEW_TAB_ID) {
+    return 'view-expression-panel';
+  }
+  return `custom-expression-panel-${tabId}`;
+};
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
@@ -227,7 +270,6 @@ const App = (): JSX.Element => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasWrapperRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const providerRef = useRef(prepareProvider());
 
   const initialExample = examples.length > 0 ? examples[0] : null;
 
@@ -244,6 +286,42 @@ const App = (): JSX.Element => {
   const [graphicsExpression, setGraphicsExpression] = useState(
     initialExample ? initialExample.graphics : defaultGraphicsExpression
   );
+  const [activeExpressionTab, setActiveExpressionTab] = useState<string>('graphics');
+  const [customTabs, setCustomTabs] = useState<CustomTabState[]>([]);
+  const [draftCustomTabs, setDraftCustomTabs] = useState<CustomTabState[] | null>(null);
+  const [tabNameDraft, setTabNameDraft] = useState<string | null>(null);
+  const [tabNameDraftError, setTabNameDraftError] = useState<string | null>(null);
+  const newTabInputRef = useRef<HTMLInputElement | null>(null);
+  const [pendingFocusEditorId, setPendingFocusEditorId] = useState<string | null>(null);
+  const newTabInputPrimedRef = useRef(false);
+  const draftCommittedRef = useRef(false);
+
+  useEffect(() => {
+    if (tabNameDraft !== null) {
+      if (!newTabInputPrimedRef.current && newTabInputRef.current) {
+        newTabInputPrimedRef.current = true;
+        newTabInputRef.current.focus();
+        newTabInputRef.current.select();
+      }
+    } else {
+      newTabInputPrimedRef.current = false;
+    }
+  }, [tabNameDraft]);
+
+  useEffect(() => {
+    if (!pendingFocusEditorId) {
+      return;
+    }
+    if (typeof document === 'undefined') {
+      return;
+    }
+    const selector = `[data-editor-id="${pendingFocusEditorId}"] .cm-content`;
+    const editorElement = document.querySelector(selector);
+    if (editorElement instanceof HTMLElement) {
+      editorElement.focus();
+    }
+    setPendingFocusEditorId(null);
+  }, [pendingFocusEditorId]);
   const [renderWarnings, setRenderWarnings] = useState<string[]>([]);
   const [canvasSize, setCanvasSize] = useState<{ cssWidth: number; cssHeight: number; dpr: number }>(
     () => ({ cssWidth: 0, cssHeight: 0, dpr: 1 })
@@ -352,6 +430,124 @@ const App = (): JSX.Element => {
     [selectedExampleId]
   );
 
+  const handleExpressionTabSelect = useCallback((tabId: string) => {
+    setActiveExpressionTab(tabId);
+  }, []);
+
+  const handleCustomTabExpressionChange = useCallback((tabId: string, next: string) => {
+    setDraftCustomTabs((current) => {
+      const target = current ?? customTabs;
+      return target.map((tab) => (tab.id === tabId ? { ...tab, expression: next } : tab));
+    });
+  }, [customTabs]);
+
+  const handleCustomTabExpressionBlur = useCallback(() => {
+    if (draftCustomTabs) {
+      setCustomTabs(draftCustomTabs);
+    }
+  }, [draftCustomTabs]);
+
+  const handleAddTabClick = useCallback(() => {
+    if (tabNameDraft !== null) {
+      if (newTabInputRef.current) {
+        newTabInputRef.current.focus();
+        newTabInputRef.current.select();
+      }
+      return;
+    }
+    const existingNames = new Set<string>([GRAPHICS_TAB_ID, VIEW_TAB_ID]);
+    for (const tab of customTabs) {
+      existingNames.add(tab.name.toLowerCase());
+    }
+    const defaultName = buildDefaultTabName(existingNames);
+    setTabNameDraft(defaultName);
+    setTabNameDraftError(null);
+    draftCommittedRef.current = false;
+  }, [customTabs, tabNameDraft]);
+
+  const commitCustomTabDraft = useCallback(
+    (rawName?: string) => {
+      if (tabNameDraft === null) {
+        return false;
+      }
+      const inputName = rawName ?? tabNameDraft;
+      const trimmedName = inputName.trim();
+      if (!trimmedName) {
+        setTabNameDraftError('Name is required.');
+        return false;
+      }
+      if (!isValidTabName(trimmedName)) {
+        setTabNameDraftError('Use letters, digits, or underscores; start with a letter or underscore.');
+        return false;
+      }
+      const lowerName = trimmedName.toLowerCase();
+      const existingNames = new Set<string>([GRAPHICS_TAB_ID, VIEW_TAB_ID]);
+      for (const tab of customTabs) {
+        existingNames.add(tab.name.toLowerCase());
+      }
+      if (existingNames.has(lowerName)) {
+        setTabNameDraftError('That name is already in use.');
+        return false;
+      }
+
+      const newTab: CustomTabState = {
+        id: createCustomTabId(),
+        name: trimmedName,
+        expression: '{\n  return 0;\n}'
+      };
+      setCustomTabs((current) => [...current, newTab]);
+      setActiveExpressionTab(newTab.id);
+      setTabNameDraft(null);
+      setTabNameDraftError(null);
+      setPendingFocusEditorId(newTab.id);
+      draftCommittedRef.current = true;
+      return true;
+    },
+    [customTabs, tabNameDraft]
+  );
+
+  const handleTabNameDraftChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setTabNameDraft(event.target.value);
+    setTabNameDraftError(null);
+    draftCommittedRef.current = false;
+  }, []);
+
+  const handleTabNameDraftKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        const committed = commitCustomTabDraft(event.currentTarget.value);
+        if (committed && event.currentTarget) {
+          event.currentTarget.blur();
+        }
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        setTabNameDraft(null);
+        setTabNameDraftError(null);
+      }
+    },
+    [commitCustomTabDraft]
+  );
+
+  const handleTabNameDraftBlur = useCallback(
+    (event: FocusEvent<HTMLInputElement>) => {
+      if (draftCommittedRef.current) {
+        draftCommittedRef.current = false;
+        return;
+      }
+      const committed = commitCustomTabDraft(event.currentTarget.value);
+      if (!committed) {
+        requestAnimationFrame(() => {
+          if (newTabInputRef.current) {
+            newTabInputRef.current.focus();
+            newTabInputRef.current.select();
+          }
+        });
+      }
+    },
+    [commitCustomTabDraft]
+  );
+
   const handleSplitterKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
     const container = containerRef.current;
     const containerWidth = container ? container.getBoundingClientRect().width : window.innerWidth;
@@ -376,6 +572,10 @@ const App = (): JSX.Element => {
   }, []);
 
   useEffect(() => {
+    setDraftCustomTabs(null);
+  }, [customTabs]);
+
+  useEffect(() => {
     const handleResize = () => {
       const container = containerRef.current;
       if (!container) {
@@ -390,15 +590,33 @@ const App = (): JSX.Element => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-  const viewEvaluation = useMemo<EvaluationResult>(() => {
-    providerRef.current.set('t', time);
-    return evaluateExpression(providerRef.current, viewExpression);
-  }, [viewExpression, time]);
+  const evaluationState = useMemo(() => {
+    const provider = prepareProvider();
+    provider.set('t', time);
 
-  const graphicsEvaluation = useMemo<EvaluationResult>(() => {
-    providerRef.current.set('t', time);
-    return evaluateExpression(providerRef.current, graphicsExpression);
-  }, [graphicsExpression, time]);
+    const evaluationMap = new Map<string, EvaluationResult>();
+
+    for (const tab of customTabs) {
+      const result = evaluateExpression(provider, tab.expression);
+      evaluationMap.set(tab.id, result);
+      if (result.typed) {
+        provider.set(tab.name, result.typed);
+      }
+    }
+
+    const viewResult = evaluateExpression(provider, viewExpression);
+    const graphicsResult = evaluateExpression(provider, graphicsExpression);
+
+    return {
+      customEvaluations: evaluationMap,
+      viewEvaluation: viewResult,
+      graphicsEvaluation: graphicsResult
+    };
+  }, [customTabs, graphicsExpression, time, viewExpression]);
+
+  const customTabEvaluations = evaluationState.customEvaluations;
+  const viewEvaluation = evaluationState.viewEvaluation;
+  const graphicsEvaluation = evaluationState.graphicsEvaluation;
 
   const viewInterpretation = useMemo(() => interpretView(viewEvaluation.value), [viewEvaluation.value]);
 
@@ -620,6 +838,9 @@ const App = (): JSX.Element => {
     preparedGraphics.layers.length > 0 &&
     viewInterpretation.extent !== null;
 
+  const isGraphicsTabActive = activeExpressionTab === GRAPHICS_TAB_ID;
+  const isViewTabActive = activeExpressionTab === VIEW_TAB_ID;
+
   return (
     <div ref={containerRef} className="app" aria-label="FuncScript graphics workspace">
       <section className="panel panel-left" style={{ width: `${leftWidth}px` }}>
@@ -715,41 +936,188 @@ const App = (): JSX.Element => {
             </select>
           </div>
 
-          <div className="form-section">
-            <label className="input-label" htmlFor="view-expression-editor">
-              View extent expression
-            </label>
-            <div className="editor-container">
-              <FuncScriptEditor
-                value={viewExpression}
-                onChange={handleViewExpressionChange}
-                minHeight={180}
-              />
+          <div className="expression-tabs">
+            <div className="expression-tabs-header">
+              <div
+                className="expression-tabs-list"
+                role="tablist"
+                aria-label="Expression editors"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  id={getExpressionTabButtonId(GRAPHICS_TAB_ID)}
+                  aria-controls={getExpressionTabPanelId(GRAPHICS_TAB_ID)}
+                  aria-selected={isGraphicsTabActive}
+                  tabIndex={isGraphicsTabActive ? 0 : -1}
+                  className={`expression-tab${isGraphicsTabActive ? ' expression-tab-active' : ''}`}
+                  onClick={() => handleExpressionTabSelect(GRAPHICS_TAB_ID)}
+                >
+                  Graphics
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  id={getExpressionTabButtonId(VIEW_TAB_ID)}
+                  aria-controls={getExpressionTabPanelId(VIEW_TAB_ID)}
+                  aria-selected={isViewTabActive}
+                  tabIndex={isViewTabActive ? 0 : -1}
+                  className={`expression-tab${isViewTabActive ? ' expression-tab-active' : ''}`}
+                  onClick={() => handleExpressionTabSelect(VIEW_TAB_ID)}
+                >
+                  View extent
+                </button>
+                {customTabs.map((tab) => {
+                  const customActive = activeExpressionTab === tab.id;
+                  const evaluation = customTabEvaluations.get(tab.id);
+                  const hasError = Boolean(evaluation?.error);
+                  const className = [
+                    'expression-tab',
+                    customActive ? 'expression-tab-active' : '',
+                    hasError ? 'expression-tab-error-state' : ''
+                  ]
+                    .filter(Boolean)
+                    .join(' ');
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      id={getExpressionTabButtonId(tab.id)}
+                      aria-controls={getExpressionTabPanelId(tab.id)}
+                      aria-selected={customActive}
+                      tabIndex={customActive ? 0 : -1}
+                      className={className}
+                      onClick={() => handleExpressionTabSelect(tab.id)}
+                    >
+                      {tab.name}
+                    </button>
+                  );
+                })}
+                {tabNameDraft !== null ? (
+                  <input
+                    ref={newTabInputRef}
+                    className="expression-tab-input"
+                    value={tabNameDraft}
+                    onChange={handleTabNameDraftChange}
+                    onKeyDown={handleTabNameDraftKeyDown}
+                    onBlur={handleTabNameDraftBlur}
+                    aria-label="New tab name"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="expression-tab expression-tab-add"
+                    onClick={handleAddTabClick}
+                    aria-label="Add expression tab"
+                  >
+                    +
+                  </button>
+                )}
+              </div>
+              {tabNameDraftError ? (
+                <p className="expression-tab-error" role="alert">
+                  {tabNameDraftError}
+                </p>
+              ) : null}
             </div>
-            <StatusMessage
-              error={viewEvaluation.error}
-              warning={viewInterpretation.warning}
-              success={viewInterpretation.extent ? 'Extent ready.' : null}
-            />
-          </div>
-
-          <div className="form-section">
-            <label className="input-label" htmlFor="graphics-expression-editor">
-              Graphics expression
-            </label>
-            <div className="editor-container editor-container-large">
-              <FuncScriptEditor
-                value={graphicsExpression}
-                onChange={handleGraphicsExpressionChange}
-                minHeight={240}
-              />
+            <div className="expression-tab-panels">
+              <div
+                role="tabpanel"
+                id={getExpressionTabPanelId(GRAPHICS_TAB_ID)}
+                aria-labelledby={getExpressionTabButtonId(GRAPHICS_TAB_ID)}
+                hidden={activeExpressionTab !== GRAPHICS_TAB_ID}
+                className="expression-tab-panel"
+              >
+                <label className="input-label" htmlFor="graphics-expression-editor">
+                  Graphics expression
+                </label>
+                <div
+                  className="editor-container editor-container-fill"
+                  data-editor-id={GRAPHICS_TAB_ID}
+                  id="graphics-expression-editor"
+                >
+                  <FuncScriptEditor
+                    value={graphicsExpression}
+                    onChange={handleGraphicsExpressionChange}
+                    minHeight={0}
+                    style={{ flex: 1 }}
+                  />
+                </div>
+                <StatusMessage
+                  error={graphicsEvaluation.error}
+                  warning={graphicsInterpretation.warning ?? unknownTypesWarning}
+                  info={preparedGraphics.warnings.concat(renderWarnings)}
+                  success={preparedGraphics.layers.length > 0 ? 'Graphics ready.' : null}
+                />
+              </div>
+              <div
+                role="tabpanel"
+                id={getExpressionTabPanelId(VIEW_TAB_ID)}
+                aria-labelledby={getExpressionTabButtonId(VIEW_TAB_ID)}
+                hidden={activeExpressionTab !== VIEW_TAB_ID}
+                className="expression-tab-panel"
+              >
+                <label className="input-label" htmlFor="view-expression-editor">
+                  View extent expression
+                </label>
+                <div
+                  className="editor-container editor-container-fill"
+                  data-editor-id={VIEW_TAB_ID}
+                  id="view-expression-editor"
+                >
+                  <FuncScriptEditor
+                    value={viewExpression}
+                    onChange={handleViewExpressionChange}
+                    minHeight={0}
+                    style={{ flex: 1 }}
+                  />
+                </div>
+                <StatusMessage
+                  error={viewEvaluation.error}
+                  warning={viewInterpretation.warning}
+                  success={viewInterpretation.extent ? 'Extent ready.' : null}
+                />
+              </div>
+              {customTabs.map((tab) => {
+                const panelId = getExpressionTabPanelId(tab.id);
+                const buttonId = getExpressionTabButtonId(tab.id);
+                const evaluation = customTabEvaluations.get(tab.id);
+                const draftTab =
+                  draftCustomTabs?.find((draft) => draft.id === tab.id) ?? tab;
+                return (
+                  <div
+                    key={tab.id}
+                    role="tabpanel"
+                    id={panelId}
+                    aria-labelledby={buttonId}
+                    hidden={activeExpressionTab !== tab.id}
+                    className="expression-tab-panel"
+                  >
+                    <label className="input-label" htmlFor={`custom-expression-editor-${tab.id}`}>
+                      {tab.name} expression
+                    </label>
+                    <div
+                      className="editor-container editor-container-fill"
+                      data-editor-id={tab.id}
+                      id={`custom-expression-editor-${tab.id}`}
+                    >
+                      <FuncScriptEditor
+                        value={draftTab.expression}
+                        onChange={(value) => handleCustomTabExpressionChange(tab.id, value)}
+                        onBlur={handleCustomTabExpressionBlur}
+                        minHeight={0}
+                        style={{ flex: 1 }}
+                      />
+                    </div>
+                    <StatusMessage
+                      error={evaluation?.error ?? null}
+                      success={!evaluation?.error ? 'Value ready.' : null}
+                    />
+                  </div>
+                );
+              })}
             </div>
-            <StatusMessage
-              error={graphicsEvaluation.error}
-              warning={graphicsInterpretation.warning ?? unknownTypesWarning}
-              info={preparedGraphics.warnings.concat(renderWarnings)}
-              success={preparedGraphics.layers.length > 0 ? 'Graphics ready.' : null}
-            />
           </div>
         </div>
       </section>
