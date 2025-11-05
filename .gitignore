@@ -405,3 +405,4 @@ orch.content/files/
 *.cpuprofile
 js-port/funcscript-editor/dist
 .idea/.idea.FunscScript/.idea
+js-port/funcscript-studio/.npm-cache

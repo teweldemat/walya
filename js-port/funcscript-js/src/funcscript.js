@@ -12,12 +12,61 @@ const { ParseNode, ParseNodeType } = require('./parser/parse-node');
 
 const { MapDataProvider } = dataProviders;
 const { ensureTyped, typeOf, valueOf } = valueModule;
+const builtinSymbols = buildBuiltinMap();
+const builtinProvider = new MapDataProvider(builtinSymbols);
+const builtinCollections = {};
 
-const builtinProvider = new MapDataProvider(buildBuiltinMap());
+const rawCollections = builtinSymbols.__collections || {};
+for (const [collectionName, members] of Object.entries(rawCollections)) {
+  const lowerCollection = collectionName.toLowerCase();
+  const seenMembers = new Set();
+  const normalizedMembers = [];
+  for (const { name, value } of members) {
+    const lowerMember = String(name).toLowerCase();
+    if (seenMembers.has(lowerMember)) {
+      continue;
+    }
+    seenMembers.add(lowerMember);
+    normalizedMembers.push([lowerMember, value]);
+  }
+  builtinCollections[lowerCollection] = normalizedMembers;
+}
 
 class DefaultFsDataProvider extends MapDataProvider {
   constructor(map = {}, parent = builtinProvider) {
     super(map, parent);
+    this._collectionCache = new Map();
+  }
+
+  get(name) {
+    const result = super.get(name);
+    if (result !== null && result !== undefined) {
+      return result;
+    }
+    if (!name) {
+      return null;
+    }
+    const lower = String(name).toLowerCase();
+    if (builtinCollections[lower]) {
+      if (!this._collectionCache.has(lower)) {
+        const entries = builtinCollections[lower].map(([memberName, typedValue]) => [memberName, typedValue]);
+        const collection = new SimpleKeyValueCollection(this, entries);
+        this._collectionCache.set(lower, ensureTyped(collection));
+      }
+      return this._collectionCache.get(lower);
+    }
+    return null;
+  }
+
+  isDefined(name) {
+    if (super.isDefined(name)) {
+      return true;
+    }
+    if (!name) {
+      return false;
+    }
+    const lower = String(name).toLowerCase();
+    return !!builtinCollections[lower];
   }
 }
 

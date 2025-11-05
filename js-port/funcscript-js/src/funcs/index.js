@@ -1,3 +1,5 @@
+const { ensureTyped } = require('../core/value');
+
 const { IFFunction } = require('./logic/if-function');
 const { EqualsFunction } = require('./logic/equals-function');
 const { NotEqualsFunction } = require('./logic/not-equals-function');
@@ -20,7 +22,33 @@ const { MultiplyFunction } = require('./math/multiply-function');
 const { DivisionFunction } = require('./math/division-function');
 const { NegateFunction } = require('./math/negate-function');
 const { ModuloFunction } = require('./math/modulo-function');
-const { SineFunction, CosineFunction } = require('./math/trigonometry-functions');
+const {
+  SineFunction,
+  CosineFunction,
+  TangentFunction,
+  ArcSineFunction,
+  ArcCosineFunction,
+  ArcTangentFunction
+} = require('./math/trigonometry-functions');
+const {
+  SquareRootFunction,
+  AbsoluteValueFunction,
+  PowerFunction,
+  ExponentialFunction,
+  NaturalLogFunction,
+  Log10Function,
+  CeilingFunction,
+  FloorFunction,
+  RoundFunction,
+  TruncateFunction,
+  SignFunction,
+  MinFunction,
+  MaxFunction,
+  ClampFunction,
+  RandomFunction,
+  PiFunction,
+  EFunction
+} = require('./math/advanced-functions');
 
 const { MapListFunction } = require('./list/map-list-function');
 const { ReduceListFunction } = require('./list/reduce-list-function');
@@ -86,8 +114,29 @@ module.exports = function buildBuiltinMap() {
     { fn: new DivisionFunction(), names: ['/'] },
     { fn: new NegateFunction(), names: ['negate'] },
     { fn: new ModuloFunction(), names: ['%'] },
-    { fn: new SineFunction(), names: ['sin'] },
-    { fn: new CosineFunction(), names: ['cos'] },
+    { fn: new SineFunction(), names: ['sin'], collections: { math: [] } },
+    { fn: new CosineFunction(), names: ['cos'], collections: { math: [] } },
+    { fn: new TangentFunction(), names: ['tan'], collections: { math: [] } },
+    { fn: new ArcSineFunction(), names: ['asin'], collections: { math: [] } },
+    { fn: new ArcCosineFunction(), names: ['acos'], collections: { math: [] } },
+    { fn: new ArcTangentFunction(), names: ['atan'], collections: { math: [] } },
+    { fn: new SquareRootFunction(), names: ['sqrt'], collections: { math: [] } },
+    { fn: new AbsoluteValueFunction(), names: ['abs'], collections: { math: [] } },
+    { fn: new PowerFunction(), names: ['pow'], collections: { math: [] } },
+    { fn: new ExponentialFunction(), names: ['exp'], collections: { math: [] } },
+    { fn: new NaturalLogFunction(), names: ['ln'], collections: { math: ['log'] } },
+    { fn: new Log10Function(), names: ['log10'], collections: { math: [] } },
+    { fn: new CeilingFunction(), names: ['ceiling', 'ceil'], collections: { math: [] } },
+    { fn: new FloorFunction(), names: ['floor'], collections: { math: [] } },
+    { fn: new RoundFunction(), names: ['round'], collections: { math: [] } },
+    { fn: new TruncateFunction(), names: ['trunc'], collections: { math: [] } },
+    { fn: new SignFunction(), names: ['sign'], collections: { math: [] } },
+    { fn: new MinFunction(), names: ['min'], collections: { math: [] } },
+    { fn: new MaxFunction(), names: ['max'], collections: { math: [] } },
+    { fn: new ClampFunction(), names: ['clamp'], collections: { math: [] } },
+    { fn: new RandomFunction(), names: ['random'], collections: { math: [] } },
+    { fn: new PiFunction(), names: ['pi'], collections: { math: [] } },
+    { fn: new EFunction(), names: ['e'], collections: { math: [] } },
     { fn: new MapListFunction(), names: ['map'] },
     { fn: new ReduceListFunction(), names: ['reduce'] },
     { fn: new FilterListFunction(), names: ['filter'] },
@@ -124,11 +173,47 @@ module.exports = function buildBuiltinMap() {
     { fn: new LogFunction(), names: ['log'] }
   ];
 
-  const map = {};
-  for (const { fn, names } of entries) {
-    for (const name of names) {
-      map[name.toLowerCase()] = fn;
+  const symbolMap = {};
+  const collections = {};
+
+  for (const entry of entries) {
+    const typedValue = ensureTyped(entry.fn);
+    const symbolNames = new Set();
+    if (Array.isArray(entry.names)) {
+      for (const name of entry.names) {
+        symbolNames.add(String(name).toLowerCase());
+      }
+    }
+
+    for (const name of symbolNames) {
+      symbolMap[name] = typedValue;
+    }
+
+    if (entry.collections) {
+      for (const [collectionName, extraMembers] of Object.entries(entry.collections)) {
+        const lowerCollection = collectionName.toLowerCase();
+        if (!collections[lowerCollection]) {
+          collections[lowerCollection] = [];
+        }
+        const combinedMembers = new Set([...symbolNames]);
+        if (Array.isArray(extraMembers)) {
+          for (const member of extraMembers) {
+            combinedMembers.add(String(member).toLowerCase());
+          }
+        }
+        for (const memberName of combinedMembers) {
+          collections[lowerCollection].push({ name: memberName, value: typedValue });
+        }
+      }
     }
   }
-  return map;
+
+  Object.defineProperty(symbolMap, '__collections', {
+    value: collections,
+    enumerable: false,
+    configurable: false,
+    writable: false
+  });
+
+  return symbolMap;
 };

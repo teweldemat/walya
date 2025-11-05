@@ -1199,8 +1199,15 @@ const formatTypedValue = (typedValue: TypedValue): string => {
   }
 };
 
+export type FuncScriptTesterVariableInput = {
+  name: string;
+  expression: string;
+};
+
 export type FuncScriptTesterProps = Omit<FuncScriptEditorProps, 'onParseModelChange' | 'readOnly'> & {
   saveKey?: string;
+  variables?: FuncScriptTesterVariableInput[];
+  onVariablesChange?: (variables: FuncScriptTesterVariableInput[]) => void;
 };
 
 const FuncScriptTester = ({
@@ -1210,7 +1217,9 @@ const FuncScriptTester = ({
   onError,
   minHeight,
   style,
-  saveKey
+  saveKey,
+  variables: externalVariables,
+  onVariablesChange
 }: FuncScriptTesterProps) => {
   const [variables, setVariables] = useState<Map<string, VariableState>>(() => new Map());
   const variablesRef = useRef<Map<string, VariableState>>(variables);
@@ -1261,6 +1270,9 @@ const FuncScriptTester = ({
   const treeDragCleanupRef = useRef<(() => void) | null>(null);
   const variableDragCleanupRef = useRef<(() => void) | null>(null);
   const treeExpressionDragCleanupRef = useRef<(() => void) | null>(null);
+  const lastExternalVariablesRef = useRef<string | null>(null);
+  const lastEmittedVariablesRef = useRef<string | null>(null);
+  const hasSynchronizedExternalRef = useRef(externalVariables === undefined);
 
   const providerRef = useRef<TesterDataProvider | null>(null);
   if (!providerRef.current) {
@@ -1270,6 +1282,25 @@ const FuncScriptTester = ({
   useEffect(() => {
     variablesRef.current = variables;
   }, [variables]);
+
+  useEffect(() => {
+    if (!onVariablesChange) {
+      return;
+    }
+    if (externalVariables !== undefined && !hasSynchronizedExternalRef.current) {
+      return;
+    }
+    const payload = Array.from(variables.values()).map((entry) => ({
+      name: entry.name,
+      expression: entry.expression
+    }));
+    const serialized = JSON.stringify(payload);
+    if (serialized === lastEmittedVariablesRef.current) {
+      return;
+    }
+    lastEmittedVariablesRef.current = serialized;
+    onVariablesChange(payload);
+  }, [variables, onVariablesChange, externalVariables]);
 
   useEffect(() => () => {
     mainDragCleanupRef.current?.();
@@ -1342,6 +1373,92 @@ const FuncScriptTester = ({
       };
     }
   }, []);
+
+  const createMapFromExternal = useCallback(
+    (definitions: FuncScriptTesterVariableInput[]) => {
+      const next = new Map<string, VariableState>();
+      definitions.forEach((definition, index) => {
+        if (!definition) {
+          return;
+        }
+        const rawName = typeof definition.name === 'string' ? definition.name.trim() : '';
+        const expression = typeof definition.expression === 'string' ? definition.expression : '';
+        const normalizedName = rawName.trim();
+        const key = normalizedName.length > 0 ? normalizedName.toLowerCase() : `__var_${index}`;
+        const { typedValue, error } = evaluateExpression(expression);
+        next.set(key, {
+          name: rawName,
+          key,
+          expression,
+          typedValue,
+          error
+        });
+      });
+      return next;
+    },
+    [evaluateExpression]
+  );
+
+  const mapsShallowEqual = useCallback((a: Map<string, VariableState>, b: Map<string, VariableState>) => {
+    if (a === b) {
+      return true;
+    }
+    if (a.size !== b.size) {
+      return false;
+    }
+    for (const [key, entryA] of a.entries()) {
+      const entryB = b.get(key);
+      if (!entryB) {
+        return false;
+      }
+      if (entryA.name !== entryB.name || entryA.expression !== entryB.expression) {
+        return false;
+      }
+    }
+    return true;
+  }, []);
+
+  useEffect(() => {
+    if (!externalVariables) {
+      lastExternalVariablesRef.current = null;
+      hasSynchronizedExternalRef.current = true;
+      return;
+    }
+    hasSynchronizedExternalRef.current = false;
+    const sanitized = externalVariables.map((item) => ({
+      name: typeof item?.name === 'string' ? item.name.trim() : '',
+      expression: typeof item?.expression === 'string' ? item.expression : ''
+    }));
+    const serialized = JSON.stringify(sanitized);
+    if (serialized === lastExternalVariablesRef.current) {
+      hasSynchronizedExternalRef.current = true;
+      return;
+    }
+    lastExternalVariablesRef.current = serialized;
+    const nextMap = createMapFromExternal(sanitized);
+    let changed = false;
+    setVariables((prev) => {
+      if (mapsShallowEqual(prev, nextMap)) {
+        return prev;
+      }
+      changed = true;
+      return nextMap;
+    });
+    if (!changed) {
+      hasSynchronizedExternalRef.current = true;
+      return;
+    }
+    variablesRef.current = nextMap;
+    setSelectedVariableKey((current) => {
+      if (current && nextMap.has(current)) {
+        return current;
+      }
+      const first = nextMap.keys().next();
+      return first.done ? null : first.value;
+    });
+    lastEmittedVariablesRef.current = serialized;
+    hasSynchronizedExternalRef.current = true;
+  }, [externalVariables, createMapFromExternal, mapsShallowEqual]);
 
   const evaluateVariableExpression = useCallback(
     (key: string, expression: string) => {

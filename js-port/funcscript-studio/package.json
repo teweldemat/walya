@@ -1,0 +1,39 @@
+{
+  "name": "funscript-studio",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "webpack serve --config webpack.config.mjs --mode development",
+    "build": "tsc --noEmit && webpack --config webpack.config.mjs --mode production",
+    "lint": "eslint .",
+    "preview": "webpack serve --config webpack.config.mjs --mode production"
+  },
+  "dependencies": {
+    "@tewelde/funcscript": "file:../funcscript-js",
+    "@tewelde/funcscript-editor": "file:../funcscript-editor",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "@types/node": "^24.6.0",
+    "@types/react": "^18.2.67",
+    "@types/react-dom": "^18.2.21",
+    "@types/webpack-env": "^1.18.5",
+    "eslint": "^9.36.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.22",
+    "globals": "^16.4.0",
+    "html-webpack-plugin": "^5.6.3",
+    "copy-webpack-plugin": "^12.0.2",
+    "css-loader": "^7.1.2",
+    "style-loader": "^4.0.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.45.0",
+    "webpack": "^5.96.1",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.2.0",
+    "ts-loader": "^9.5.1"
+  }
+}
