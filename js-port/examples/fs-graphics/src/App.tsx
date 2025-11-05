@@ -441,11 +441,18 @@ const App = (): JSX.Element => {
     });
   }, [customTabs]);
 
-  const handleCustomTabExpressionBlur = useCallback(() => {
-    if (draftCustomTabs) {
-      setCustomTabs(draftCustomTabs);
-    }
-  }, [draftCustomTabs]);
+  const handleCustomTabExpressionBlur = useCallback(
+    (event: FocusEvent<HTMLDivElement>) => {
+      const { currentTarget, relatedTarget } = event;
+      if (relatedTarget instanceof Node && currentTarget.contains(relatedTarget)) {
+        return;
+      }
+      if (draftCustomTabs) {
+        setCustomTabs(draftCustomTabs);
+      }
+    },
+    [draftCustomTabs]
+  );
 
   const handleAddTabClick = useCallback(() => {
     if (tabNameDraft !== null) {
