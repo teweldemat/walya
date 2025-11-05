@@ -1101,11 +1101,11 @@ const App = (): JSX.Element => {
                       className="editor-container editor-container-fill"
                       data-editor-id={tab.id}
                       id={`custom-expression-editor-${tab.id}`}
+                      onBlur={handleCustomTabExpressionBlur}
                     >
                       <FuncScriptEditor
                         value={draftTab.expression}
-                        onChange={(value) => handleCustomTabExpressionChange(tab.id, value)}
-                        onBlur={handleCustomTabExpressionBlur}
+                        onChange={(value: string) => handleCustomTabExpressionChange(tab.id, value)}
                         minHeight={0}
                         style={{ flex: 1 }}
                       />
