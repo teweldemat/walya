@@ -3,6 +3,7 @@ using System;
 
 namespace FuncScript.Functions.Math
 {
+    [ProviderCollection("math")]
     public class SineFunction : IFsFunction
     {
         public int MaxParsCount => 1;
@@ -41,6 +42,7 @@ namespace FuncScript.Functions.Math
         }
     }
 
+    [ProviderCollection("math")]
     public class CosineFunction : IFsFunction
     {
         public int MaxParsCount => 1;
