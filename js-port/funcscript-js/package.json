@@ -53,5 +53,11 @@
   },
   "contributors": [
     "Tewelde Ma. Tegegne <teweldemat@gmail.com>"
-  ]
+  ],
+  "scripts": {
+    "test": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0"
+  }
 }

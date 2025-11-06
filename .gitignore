@@ -409,3 +409,4 @@ js-port/funcscript-editor/dist
 js-port/funcscript-studio/.npm-cache
 .venv-docs
 js-port/examples/fs-graphics/dist
+js-port/funcscript-js/.npm-cache

@@ -13,7 +13,6 @@ export type PrimitiveType = 'line' | 'rect' | 'circle' | 'polygon' | 'text';
 export type Primitive = {
   type: PrimitiveType | string;
   data: Record<string, unknown>;
-  transform?: Record<string, unknown> | null;
 };
 
 export type PrimitiveLayer = Primitive[];
@@ -25,18 +24,6 @@ export type ViewExtent = {
   maxY: number;
 };
 
-export type TransformSpec = {
-  translate?: [number, number];
-  scale?: number | [number, number];
-  rotate?: number; // degrees
-};
-
-export type PreparedTransform = {
-  translate: [number, number];
-  scale: [number, number];
-  rotate: number; // radians
-};
-
 export type PreparedLine = {
   type: 'line';
   from: [number, number];
@@ -44,7 +31,6 @@ export type PreparedLine = {
   stroke: string;
   width: number;
   dash: number[] | null;
-  transform: PreparedTransform | null;
 };
 
 export type PreparedRect = {
@@ -54,7 +40,6 @@ export type PreparedRect = {
   stroke: string | null;
   fill: string | null;
   width: number;
-  transform: PreparedTransform | null;
 };
 
 export type PreparedCircle = {
@@ -64,7 +49,6 @@ export type PreparedCircle = {
   stroke: string | null;
   fill: string | null;
   width: number;
-  transform: PreparedTransform | null;
 };
 
 export type PreparedPolygon = {
@@ -73,7 +57,6 @@ export type PreparedPolygon = {
   stroke: string | null;
   fill: string | null;
   width: number;
-  transform: PreparedTransform | null;
 };
 
 export type PreparedText = {
@@ -83,7 +66,6 @@ export type PreparedText = {
   color: string;
   fontSize: number;
   align: CanvasTextAlign;
-  transform: PreparedTransform | null;
 };
 
 export type PreparedPrimitive =
@@ -146,13 +128,10 @@ export const defaultGraphicsExpression = `{
     {
       type:'circle',
       data:{
-        center:[0,0],
+        center:[4,-1],
         radius:5,
         stroke:accent,
         width:0.35
-      },
-      transform:{
-        translate:[4,-1]
       }
     },
     {
@@ -267,58 +246,6 @@ const ensurePoints = (value: unknown): Array<[number, number]> | null => {
   return points;
 };
 
-const ensureTransform = (value: unknown, warnings: string[], ctx: string): PreparedTransform | null => {
-  if (value === null || value === undefined) {
-    return null;
-  }
-  if (typeof value !== 'object' || Array.isArray(value)) {
-    warnings.push(`Transform for ${ctx} must be an object.`);
-    return null;
-  }
-
-  const record = value as TransformSpec;
-  let translate: [number, number] = [0, 0];
-  let scale: [number, number] = [1, 1];
-  let rotate = 0;
-
-  if (record.translate) {
-    const t = ensurePoint(record.translate);
-    if (t) {
-      translate = t;
-    } else {
-      warnings.push(`Transform for ${ctx} has invalid translate; expected [x, y].`);
-    }
-  }
-
-  if (record.scale !== undefined) {
-    if (typeof record.scale === 'number' && Number.isFinite(record.scale)) {
-      scale = [record.scale, record.scale];
-    } else if (
-      Array.isArray(record.scale) &&
-      record.scale.length === 2 &&
-      record.scale.every((entry) => typeof entry === 'number' && Number.isFinite(entry))
-    ) {
-      scale = [record.scale[0], record.scale[1]];
-    } else {
-      warnings.push(`Transform for ${ctx} has invalid scale; expected number or [x, y].`);
-    }
-  }
-
-  if (record.rotate !== undefined) {
-    if (typeof record.rotate === 'number' && Number.isFinite(record.rotate)) {
-      rotate = (record.rotate * Math.PI) / 180;
-    } else {
-      warnings.push(`Transform for ${ctx} has invalid rotate; expected number (degrees).`);
-    }
-  }
-
-  return {
-    translate,
-    scale,
-    rotate
-  };
-};
-
 export const evaluateExpression = (
   provider: DefaultFsDataProvider,
   expression: string
@@ -395,11 +322,15 @@ const collectPrimitives = (
       if (!['line', 'rect', 'circle', 'polygon', 'text'].includes(type)) {
         unknownTypes.add(type);
       }
+      if (transform !== undefined && transform !== null) {
+        warnings.push(
+          `Primitive at ${path || 'root'} includes a transform, but transforms are no longer supported and will be ignored.`
+        );
+      }
       return [
         {
           type,
-          data: data as Record<string, unknown>,
-          transform: transform && typeof transform === 'object' ? (transform as Record<string, unknown>) : null
+          data: data as Record<string, unknown>
         }
       ];
     }
@@ -445,43 +376,6 @@ export const interpretGraphics = (value: unknown): GraphicsInterpretation => {
   };
 };
 
-const applyTransformToPoint = (point: [number, number], transform: PreparedTransform | null): [number, number] => {
-  if (!transform) {
-    return point;
-  }
-  let [x, y] = point;
-  const { scale, rotate, translate } = transform;
-  x *= scale[0];
-  y *= scale[1];
-  if (rotate !== 0) {
-    const cos = Math.cos(rotate);
-    const sin = Math.sin(rotate);
-    const rx = x * cos - y * sin;
-    const ry = x * sin + y * cos;
-    x = rx;
-    y = ry;
-  }
-  x += translate[0];
-  y += translate[1];
-  return [x, y];
-};
-
-const transformRadius = (
-  radius: number,
-  transform: PreparedTransform | null,
-  warnings: string[],
-  ctx: string
-): number => {
-  if (!transform) {
-    return radius;
-  }
-  const [sx, sy] = transform.scale;
-  if (Math.abs(sx - sy) > 1e-6) {
-    warnings.push(`Circle in ${ctx} has non-uniform scale; using average.`);
-  }
-  return radius * (Math.abs(sx) + Math.abs(sy)) / 2;
-};
-
 export const prepareGraphics = (
   extent: ViewExtent | null,
   layers: PrimitiveLayer[] | null
@@ -503,7 +397,6 @@ export const prepareGraphics = (
     for (let primitiveIndex = 0; primitiveIndex < layer.length; primitiveIndex += 1) {
       const primitive = layer[primitiveIndex];
       const ctx = `primitive ${primitiveIndex + 1}`;
-      const transform = ensureTransform(primitive.transform, warnings, ctx);
 
       switch (primitive.type) {
         case 'line': {
@@ -526,8 +419,7 @@ export const prepareGraphics = (
             to,
             stroke,
             width,
-            dash,
-            transform
+            dash
           });
           break;
         }
@@ -547,8 +439,7 @@ export const prepareGraphics = (
             size,
             stroke,
             fill,
-            width,
-            transform
+            width
           });
           break;
         }
@@ -568,8 +459,7 @@ export const prepareGraphics = (
             radius,
             stroke,
             fill,
-            width,
-            transform
+            width
           });
           break;
         }
@@ -587,8 +477,7 @@ export const prepareGraphics = (
             points,
             stroke,
             fill,
-            width,
-            transform
+            width
           });
           break;
         }
@@ -609,8 +498,7 @@ export const prepareGraphics = (
             text,
             color,
             fontSize,
-            align,
-            transform
+            align
           });
           break;
         }
@@ -656,17 +544,5 @@ export const projectPointBuilder = (
     }
   };
 };
-
-export const applyTransformToPoints = (
-  points: Array<[number, number]>,
-  transform: PreparedTransform | null
-): Array<[number, number]> => points.map((point) => applyTransformToPoint(point, transform));
-
-export const transformCircleRadius = (
-  radius: number,
-  transform: PreparedTransform | null,
-  warnings: string[],
-  ctx: string
-) => transformRadius(radius, transform, warnings, ctx);
 
 export const prepareProvider = () => new DefaultFsDataProvider();

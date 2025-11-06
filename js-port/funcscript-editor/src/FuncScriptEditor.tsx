@@ -382,9 +382,19 @@ const FuncScriptEditor = ({
   const providerRef = useRef<DefaultFsDataProvider | null>(null);
   const editableCompartmentRef = useRef(new Compartment());
 
+  const changeCallbackRef = useRef(onChange);
+  const blurCallbackRef = useRef(onBlur);
   const segmentsCallbackRef = useRef(onSegmentsChange);
   const errorCallbackRef = useRef(onError);
   const parseModelCallbackRef = useRef(onParseModelChange);
+
+  useEffect(() => {
+    changeCallbackRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
+    blurCallbackRef.current = onBlur;
+  }, [onBlur]);
 
   useEffect(() => {
     segmentsCallbackRef.current = onSegmentsChange;
@@ -480,10 +490,16 @@ const FuncScriptEditor = ({
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             const nextValue = update.state.doc.toString();
-            onChange(nextValue);
+            const changeCallback = changeCallbackRef.current;
+            if (changeCallback) {
+              changeCallback(nextValue);
+            }
           }
-          if (update.focusChanged && !update.view.hasFocus && onBlur) {
-            onBlur();
+          if (update.focusChanged && !update.view.hasFocus) {
+            const blurCallback = blurCallbackRef.current;
+            if (blurCallback) {
+              blurCallback();
+            }
           }
         })
       ]
@@ -500,7 +516,7 @@ const FuncScriptEditor = ({
       viewRef.current = null;
       providerRef.current = null;
     };
-  }, [minHeight, onChange]);
+  }, [minHeight]);
 
   useEffect(() => {
     const view = viewRef.current;

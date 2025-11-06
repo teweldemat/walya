@@ -2,6 +2,7 @@ import {
   ChangeEvent,
   FocusEvent,
   KeyboardEvent,
+  MouseEvent as ReactMouseEvent,
   TouchEvent as ReactTouchEvent,
   useCallback,
   useEffect,
@@ -10,7 +11,6 @@ import {
   useState
 } from 'react';
 import {
-  applyTransformToPoints,
   defaultGraphicsExpression,
   defaultViewExpression,
   evaluateExpression,
@@ -19,10 +19,9 @@ import {
   prepareGraphics,
   prepareProvider,
   projectPointBuilder,
-  transformCircleRadius,
   type EvaluationResult
 } from './graphics';
-import type { PreparedGraphics, PreparedPrimitive, PreparedTransform, ViewExtent } from './graphics';
+import type { PreparedGraphics, PreparedPrimitive, ViewExtent } from './graphics';
 import './App.css';
 import { FuncScriptEditor } from '@tewelde/funcscript-editor';
 import examples from './examples';
@@ -40,6 +39,101 @@ type CustomTabState = {
   name: string;
   expression: string;
 };
+
+type PrimitiveReference = {
+  name: string;
+  title: string;
+  description: string;
+  example: string;
+};
+
+const PRIMITIVE_REFERENCE: PrimitiveReference[] = [
+  {
+    name: 'line',
+    title: 'Line',
+    description: 'Draw a straight segment between two points.',
+    example: `{
+  type:'line',
+  data:{
+    from:[-5,0],
+    to:[5,0],
+    stroke:'#38bdf8',
+    width:0.35,
+    dash:[1,0.5]
+  }
+}`
+  },
+  {
+    name: 'rect',
+    title: 'Rectangle',
+    description: 'Filled or stroked axis-aligned rectangle.',
+    example: `{
+  type:'rect',
+  data:{
+    position:[-4,-2],
+    size:[8,4],
+    fill:'rgba(56,189,248,0.25)',
+    stroke:'#38bdf8',
+    width:0.4
+  }
+}`
+  },
+  {
+    name: 'circle',
+    title: 'Circle',
+    description: 'Circle defined by center and radius.',
+    example: `{
+  type:'circle',
+  data:{
+    center:[2,-1],
+    radius:3,
+    stroke:'#f97316',
+    fill:'rgba(249,115,22,0.25)',
+    width:0.35
+  }
+}`
+  },
+  {
+    name: 'polygon',
+    title: 'Polygon',
+    description: 'Closed shape from three or more points.',
+    example: `{
+  type:'polygon',
+  data:{
+    points:[[-6,-2],[-2,4],[4,3],[6,-1]],
+    fill:'rgba(94,234,212,0.25)',
+    stroke:'#0ea5e9',
+    width:0.3
+  }
+}`
+  },
+  {
+    name: 'text',
+    title: 'Text',
+    description: 'Label rendered at a point using world coordinates.',
+    example: `{
+  type:'text',
+  data:{
+    position:[0,6],
+    text:'Hello',
+    color:'#e2e8f0',
+    fontSize:1.6,
+    align:'center'
+  }
+}`
+  }
+];
+
+type PersistedSnapshot = {
+  leftWidth?: number;
+  selectedExampleId?: string;
+  graphicsExpression?: string;
+  viewExpression?: string;
+  customTabs?: CustomTabState[];
+  activeExpressionTab?: string;
+};
+
+const STORAGE_KEY = 'fs-graphics-state';
 
 const createCustomTabId = () => `custom-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
 
@@ -76,6 +170,64 @@ const getExpressionTabPanelId = (tabId: string) => {
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+const sanitizeCustomTabs = (value: unknown): CustomTabState[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const result: CustomTabState[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object') {
+      continue;
+    }
+    const { id, name, expression } = entry as Partial<CustomTabState>;
+    if (typeof id === 'string' && typeof name === 'string' && typeof expression === 'string') {
+      result.push({ id, name, expression });
+    }
+  }
+  return result;
+};
+
+const loadPersistedSnapshot = (): PersistedSnapshot | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const data = JSON.parse(raw) as Record<string, unknown> | null;
+    if (!data || typeof data !== 'object') {
+      return null;
+    }
+    const snapshot: PersistedSnapshot = {};
+    if (typeof data.leftWidth === 'number' && Number.isFinite(data.leftWidth)) {
+      snapshot.leftWidth = data.leftWidth;
+    }
+    if (typeof data.selectedExampleId === 'string') {
+      snapshot.selectedExampleId = data.selectedExampleId;
+    }
+    if (typeof data.graphicsExpression === 'string') {
+      snapshot.graphicsExpression = data.graphicsExpression;
+    }
+    if (typeof data.viewExpression === 'string') {
+      snapshot.viewExpression = data.viewExpression;
+    }
+    if (typeof data.activeExpressionTab === 'string') {
+      snapshot.activeExpressionTab = data.activeExpressionTab;
+    }
+    if ('customTabs' in data) {
+      const sanitized = sanitizeCustomTabs(data.customTabs);
+      if (sanitized) {
+        snapshot.customTabs = sanitized;
+      }
+    }
+    return snapshot;
+  } catch {
+    return null;
+  }
+};
 
 const drawScene = (
   canvas: HTMLCanvasElement,
@@ -130,10 +282,8 @@ const drawScene = (
   const drawPrimitive = (primitive: PreparedPrimitive) => {
     switch (primitive.type) {
       case 'line': {
-        const startWorld = applyTransformToPoints([primitive.from], primitive.transform)[0];
-        const endWorld = applyTransformToPoints([primitive.to], primitive.transform)[0];
-        const start = project(startWorld);
-        const end = project(endWorld);
+        const start = project(primitive.from);
+        const end = project(primitive.to);
         context.save();
         applyStroke(primitive.stroke, primitive.width);
         if (primitive.dash && primitive.dash.length > 0) {
@@ -151,14 +301,12 @@ const drawScene = (
       case 'rect': {
         const [x, y] = primitive.position;
         const [w, h] = primitive.size;
-        const corners: Array<[number, number]> = [
-          [x, y],
-          [x + w, y],
-          [x + w, y + h],
-          [x, y + h]
+        const projected = [
+          project([x, y]),
+          project([x + w, y]),
+          project([x + w, y + h]),
+          project([x, y + h])
         ];
-        const worldCorners = applyTransformToPoints(corners, primitive.transform);
-        const projected = worldCorners.map(project);
         context.save();
         context.beginPath();
         projected.forEach((point, index) => {
@@ -181,17 +329,10 @@ const drawScene = (
         break;
       }
       case 'circle': {
-        const centerWorld = applyTransformToPoints([primitive.center], primitive.transform)[0];
-        const radiusWorld = transformCircleRadius(
-          primitive.radius,
-          primitive.transform as PreparedTransform | null,
-          renderWarnings,
-          'circle'
-        );
-        const center = project(centerWorld);
+        const center = project(primitive.center);
         context.save();
         context.beginPath();
-        context.arc(center.x, center.y, Math.max(0, radiusWorld * scale), 0, Math.PI * 2);
+        context.arc(center.x, center.y, Math.max(0, primitive.radius * scale), 0, Math.PI * 2);
         if (primitive.fill) {
           context.fillStyle = primitive.fill;
           context.fill();
@@ -204,11 +345,10 @@ const drawScene = (
         break;
       }
       case 'polygon': {
-        const worldPoints = applyTransformToPoints(primitive.points, primitive.transform);
-        if (worldPoints.length < 3) {
+        if (primitive.points.length < 3) {
           return;
         }
-        const projected = worldPoints.map(project);
+        const projected = primitive.points.map(project);
         context.save();
         context.beginPath();
         projected.forEach((point, index) => {
@@ -231,22 +371,12 @@ const drawScene = (
         break;
       }
       case 'text': {
-        const worldPos = applyTransformToPoints([primitive.position], primitive.transform)[0];
-        const projected = project(worldPos);
-        const transform = primitive.transform;
-        let fontScale = 1;
-        if (transform) {
-          const [sx, sy] = transform.scale;
-          fontScale = Math.abs(sx + sy) / 2;
-          if (Math.abs(sx - sy) > 1e-4) {
-            renderWarnings.push('Text transform uses non-uniform scale; averaging factors.');
-          }
-        }
+        const projected = project(primitive.position);
         context.save();
         context.fillStyle = primitive.color;
         context.textAlign = primitive.align;
         context.textBaseline = 'middle';
-        context.font = `${Math.max(12, primitive.fontSize * fontScale * scale)}px "Inter", "Roboto", sans-serif`;
+        context.font = `${Math.max(12, primitive.fontSize * scale)}px "Inter", "Roboto", sans-serif`;
         context.fillText(primitive.text, projected.x, projected.y);
         context.restore();
         break;
@@ -272,22 +402,55 @@ const App = (): JSX.Element => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const initialExample = examples.length > 0 ? examples[0] : null;
+  const persistedStateRef = useRef<PersistedSnapshot | null>(loadPersistedSnapshot());
 
   const [leftWidth, setLeftWidth] = useState(() => {
+    const persisted = persistedStateRef.current;
+    if (persisted && typeof persisted.leftWidth === 'number' && Number.isFinite(persisted.leftWidth)) {
+      return Math.max(MIN_LEFT_WIDTH, Math.round(persisted.leftWidth));
+    }
     if (typeof window === 'undefined') {
       return 420;
     }
     return Math.round(window.innerWidth * DEFAULT_RATIO) || 420;
   });
   const [dragging, setDragging] = useState(false);
-  const [viewExpression, setViewExpression] = useState(
-    initialExample ? initialExample.view : defaultViewExpression
-  );
-  const [graphicsExpression, setGraphicsExpression] = useState(
-    initialExample ? initialExample.graphics : defaultGraphicsExpression
-  );
-  const [activeExpressionTab, setActiveExpressionTab] = useState<string>('graphics');
-  const [customTabs, setCustomTabs] = useState<CustomTabState[]>([]);
+  const [viewExpression, setViewExpression] = useState(() => {
+    const persisted = persistedStateRef.current;
+    if (persisted && typeof persisted.viewExpression === 'string') {
+      return persisted.viewExpression;
+    }
+    return initialExample ? initialExample.view : defaultViewExpression;
+  });
+  const [graphicsExpression, setGraphicsExpression] = useState(() => {
+    const persisted = persistedStateRef.current;
+    if (persisted && typeof persisted.graphicsExpression === 'string') {
+      return persisted.graphicsExpression;
+    }
+    return initialExample ? initialExample.graphics : defaultGraphicsExpression;
+  });
+  const [customTabs, setCustomTabs] = useState<CustomTabState[]>(() => {
+    const persisted = persistedStateRef.current;
+    if (persisted?.customTabs && Array.isArray(persisted.customTabs)) {
+      return persisted.customTabs;
+    }
+    return [];
+  });
+  const [activeExpressionTab, setActiveExpressionTab] = useState<string>(() => {
+    const persisted = persistedStateRef.current;
+    const candidate = persisted?.activeExpressionTab;
+    if (!candidate) {
+      return GRAPHICS_TAB_ID;
+    }
+    if (candidate === GRAPHICS_TAB_ID || candidate === VIEW_TAB_ID) {
+      return candidate;
+    }
+    const persistedCustomTabs = persisted?.customTabs ?? [];
+    if (persistedCustomTabs.some((tab) => tab.id === candidate)) {
+      return candidate;
+    }
+    return GRAPHICS_TAB_ID;
+  });
   const [draftCustomTabs, setDraftCustomTabs] = useState<CustomTabState[] | null>(null);
   const [tabNameDraft, setTabNameDraft] = useState<string | null>(null);
   const [tabNameDraftError, setTabNameDraftError] = useState<string | null>(null);
@@ -328,9 +491,22 @@ const App = (): JSX.Element => {
   );
   const [time, setTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [selectedExampleId, setSelectedExampleId] = useState<string>(
-    initialExample ? initialExample.id : 'custom'
+  const [selectedExampleId, setSelectedExampleId] = useState<string>(() => {
+    const persisted = persistedStateRef.current;
+    const candidate = persisted?.selectedExampleId;
+    if (candidate) {
+      const validIds = new Set(examples.map((example) => example.id));
+      if (candidate === 'custom' || validIds.has(candidate)) {
+        return candidate;
+      }
+    }
+    return initialExample ? initialExample.id : 'custom';
+  });
+  const [referenceSelection, setReferenceSelection] = useState<string>(() =>
+    PRIMITIVE_REFERENCE.length > 0 ? PRIMITIVE_REFERENCE[0].name : ''
   );
+  const [referenceOpen, setReferenceOpen] = useState(false);
+  const [exampleOpen, setExampleOpen] = useState(false);
 
   const applyWidthFromClientX = useCallback(
     (clientX: number) => {
@@ -406,9 +582,44 @@ const App = (): JSX.Element => {
     }
   }, [applyWidthFromClientX]);
 
-  const handleExampleSelect = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
-    setSelectedExampleId(event.target.value);
+  const handleReferenceOpen = useCallback(() => {
+    setReferenceSelection((current) => {
+      if (PRIMITIVE_REFERENCE.some((entry) => entry.name === current)) {
+        return current;
+      }
+      return PRIMITIVE_REFERENCE[0]?.name ?? '';
+    });
+    setReferenceOpen(true);
   }, []);
+
+  const handleReferenceClose = useCallback(() => {
+    setReferenceOpen(false);
+  }, []);
+
+  const handleReferenceSelectionChange = useCallback((value: string) => {
+    setReferenceSelection(value);
+  }, []);
+
+  const handleExampleOpen = useCallback(() => {
+    setExampleOpen(true);
+  }, []);
+
+  const handleExampleClose = useCallback(() => {
+    setExampleOpen(false);
+  }, []);
+
+  const handleExampleLoad = useCallback(
+    (exampleId: string) => {
+      if (!examples.some((entry) => entry.id === exampleId)) {
+        return;
+      }
+      setExampleOpen(false);
+      setActiveExpressionTab(GRAPHICS_TAB_ID);
+      setTabNameDraft(null);
+      setSelectedExampleId(exampleId);
+    },
+    []
+  );
 
   const handleViewExpressionChange = useCallback(
     (value: string) => {
@@ -583,6 +794,55 @@ const App = (): JSX.Element => {
   }, [customTabs]);
 
   useEffect(() => {
+    if ((!referenceOpen && !exampleOpen) || typeof window === 'undefined') {
+      return;
+    }
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        if (referenceOpen) {
+          setReferenceOpen(false);
+        }
+        if (exampleOpen) {
+          setExampleOpen(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [exampleOpen, referenceOpen]);
+
+  useEffect(() => {
+    if ((!referenceOpen && !exampleOpen) || typeof document === 'undefined') {
+      return;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [exampleOpen, referenceOpen]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const snapshot: PersistedSnapshot = {
+      leftWidth,
+      selectedExampleId,
+      graphicsExpression,
+      viewExpression,
+      customTabs,
+      activeExpressionTab
+    };
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+    } catch {
+      // Swallow storage errors to avoid breaking the editor experience.
+    }
+  }, [activeExpressionTab, customTabs, graphicsExpression, leftWidth, selectedExampleId, viewExpression]);
+
+  useEffect(() => {
     const handleResize = () => {
       const container = containerRef.current;
       if (!container) {
@@ -752,6 +1012,10 @@ const App = (): JSX.Element => {
     setTime(0);
     setViewExpression(example.view);
     setGraphicsExpression(example.graphics);
+    setCustomTabs([]);
+    setDraftCustomTabs(null);
+    setTabNameDraft(null);
+    setActiveExpressionTab(GRAPHICS_TAB_ID);
   }, [selectedExampleId, stopAnimation]);
 
   useEffect(() => {
@@ -849,288 +1113,442 @@ const App = (): JSX.Element => {
   const isViewTabActive = activeExpressionTab === VIEW_TAB_ID;
 
   return (
-    <div ref={containerRef} className="app" aria-label="FuncScript graphics workspace">
-      <section className="panel panel-left" style={{ width: `${leftWidth}px` }}>
-        <header className="panel-heading">Preview</header>
-        <div className="panel-body panel-body-left">
-          <div className="panel-header-controls">
-            <div className="panel-meta">
-              <span>Primitives: {totalPrimitives}</span>
-              <span>
-                Canvas: {Math.round(canvasSize.cssWidth)}px × {Math.round(canvasSize.cssHeight)}px @ {canvasSize.dpr.toFixed(2)}x
-              </span>
-              <span>
-                View span:{' '}
-                {viewInterpretation.extent
-                  ? `${(viewInterpretation.extent.maxX - viewInterpretation.extent.minX).toFixed(2)} × ${(viewInterpretation.extent.maxY - viewInterpretation.extent.minY).toFixed(2)}`
-                  : '—'}
-              </span>
-            </div>
-            <div className="animation-controls">
-              <span className="time-display">t = {time.toFixed(2)}s</span>
-              <div className="animation-buttons">
-                <button
-                  type="button"
-                  className="control-button"
-                  onClick={handlePlay}
-                  disabled={isPlaying}
-                  aria-label="Play"
-                >
-                  ▶
-                </button>
-                <button
-                  type="button"
-                  className="control-button"
-                  onClick={handlePause}
-                  disabled={!isPlaying}
-                  aria-label="Pause"
-                >
-                  ⏸
-                </button>
-                <button
-                  type="button"
-                  className="control-button"
-                  onClick={handleReset}
-                  aria-label="Reset"
-                >
-                  ⟲
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div ref={canvasWrapperRef} className="canvas-wrapper">
-            <canvas ref={canvasRef} className="preview-canvas" />
-            {!canvasReady ? (
-              <div className="canvas-notice">
-                <p>Awaiting view extent and primitive output.</p>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </section>
-
-      <div
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="Resize panels"
-        tabIndex={0}
-        className={`splitter${dragging ? ' splitter-dragging' : ''}`}
-        onMouseDown={handleSplitterMouseDown}
-        onTouchStart={handleSplitterTouchStart}
-        onKeyDown={handleSplitterKeyDown}
-      />
-
-      <section className="panel panel-right">
-        <header className="panel-heading">Expressions</header>
-        <div className="panel-body panel-body-right">
-          <div className="example-picker">
-            <label htmlFor="example-select" className="input-label">
-              Example
-            </label>
-            <select
-              id="example-select"
-              className="example-select"
-              value={selectedExampleId}
-              onChange={handleExampleSelect}
-            >
-              <option value="custom">Custom</option>
-              {examples.map((example) => (
-                <option key={example.id} value={example.id}>
-                  {example.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="expression-tabs">
-            <div className="expression-tabs-header">
-              <div
-                className="expression-tabs-list"
-                role="tablist"
-                aria-label="Expression editors"
+    <>
+      <div ref={containerRef} className="app" aria-label="FuncScript graphics workspace">
+        <section className="panel panel-left" style={{ width: `${leftWidth}px` }}>
+          <div className="panel-body panel-body-right">
+            <div className="top-controls">
+              <button
+                type="button"
+                className="dialog-button"
+                onClick={handleExampleOpen}
+                aria-haspopup="dialog"
+                aria-expanded={exampleOpen}
               >
-                <button
-                  type="button"
-                  role="tab"
-                  id={getExpressionTabButtonId(GRAPHICS_TAB_ID)}
-                  aria-controls={getExpressionTabPanelId(GRAPHICS_TAB_ID)}
-                  aria-selected={isGraphicsTabActive}
-                  tabIndex={isGraphicsTabActive ? 0 : -1}
-                  className={`expression-tab${isGraphicsTabActive ? ' expression-tab-active' : ''}`}
-                  onClick={() => handleExpressionTabSelect(GRAPHICS_TAB_ID)}
+                Load Example
+              </button>
+
+              <button
+                type="button"
+                className="dialog-button dialog-button-reference"
+                onClick={handleReferenceOpen}
+                aria-haspopup="dialog"
+                aria-expanded={referenceOpen}
+              >
+                Reference
+              </button>
+            </div>
+
+            <div className="expression-tabs">
+              <div className="expression-tabs-header">
+                <div
+                  className="expression-tabs-list"
+                  role="tablist"
+                  aria-label="Expression editors"
                 >
-                  Graphics
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  id={getExpressionTabButtonId(VIEW_TAB_ID)}
-                  aria-controls={getExpressionTabPanelId(VIEW_TAB_ID)}
-                  aria-selected={isViewTabActive}
-                  tabIndex={isViewTabActive ? 0 : -1}
-                  className={`expression-tab${isViewTabActive ? ' expression-tab-active' : ''}`}
-                  onClick={() => handleExpressionTabSelect(VIEW_TAB_ID)}
-                >
-                  View extent
-                </button>
-                {customTabs.map((tab) => {
-                  const customActive = activeExpressionTab === tab.id;
-                  const evaluation = customTabEvaluations.get(tab.id);
-                  const hasError = Boolean(evaluation?.error);
-                  const className = [
-                    'expression-tab',
-                    customActive ? 'expression-tab-active' : '',
-                    hasError ? 'expression-tab-error-state' : ''
-                  ]
-                    .filter(Boolean)
-                    .join(' ');
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      role="tab"
-                      id={getExpressionTabButtonId(tab.id)}
-                      aria-controls={getExpressionTabPanelId(tab.id)}
-                      aria-selected={customActive}
-                      tabIndex={customActive ? 0 : -1}
-                      className={className}
-                      onClick={() => handleExpressionTabSelect(tab.id)}
-                    >
-                      {tab.name}
-                    </button>
-                  );
-                })}
-                {tabNameDraft !== null ? (
-                  <input
-                    ref={newTabInputRef}
-                    className="expression-tab-input"
-                    value={tabNameDraft}
-                    onChange={handleTabNameDraftChange}
-                    onKeyDown={handleTabNameDraftKeyDown}
-                    onBlur={handleTabNameDraftBlur}
-                    aria-label="New tab name"
-                  />
-                ) : (
                   <button
                     type="button"
-                    className="expression-tab expression-tab-add"
-                    onClick={handleAddTabClick}
-                    aria-label="Add expression tab"
+                    role="tab"
+                    id={getExpressionTabButtonId(GRAPHICS_TAB_ID)}
+                    aria-controls={getExpressionTabPanelId(GRAPHICS_TAB_ID)}
+                    aria-selected={isGraphicsTabActive}
+                    tabIndex={isGraphicsTabActive ? 0 : -1}
+                    className={`expression-tab${isGraphicsTabActive ? ' expression-tab-active' : ''}`}
+                    onClick={() => handleExpressionTabSelect(GRAPHICS_TAB_ID)}
                   >
-                    +
+                    Graphics
                   </button>
-                )}
-              </div>
-              {tabNameDraftError ? (
-                <p className="expression-tab-error" role="alert">
-                  {tabNameDraftError}
-                </p>
-              ) : null}
-            </div>
-            <div className="expression-tab-panels">
-              <div
-                role="tabpanel"
-                id={getExpressionTabPanelId(GRAPHICS_TAB_ID)}
-                aria-labelledby={getExpressionTabButtonId(GRAPHICS_TAB_ID)}
-                hidden={activeExpressionTab !== GRAPHICS_TAB_ID}
-                className="expression-tab-panel"
-              >
-                <label className="input-label" htmlFor="graphics-expression-editor">
-                  Graphics expression
-                </label>
-                <div
-                  className="editor-container editor-container-fill"
-                  data-editor-id={GRAPHICS_TAB_ID}
-                  id="graphics-expression-editor"
-                >
-                  <FuncScriptEditor
-                    value={graphicsExpression}
-                    onChange={handleGraphicsExpressionChange}
-                    minHeight={0}
-                    style={{ flex: 1 }}
-                  />
-                </div>
-                <StatusMessage
-                  error={graphicsEvaluation.error}
-                  warning={graphicsInterpretation.warning ?? unknownTypesWarning}
-                  info={preparedGraphics.warnings.concat(renderWarnings)}
-                  success={preparedGraphics.layers.length > 0 ? 'Graphics ready.' : null}
-                />
-              </div>
-              <div
-                role="tabpanel"
-                id={getExpressionTabPanelId(VIEW_TAB_ID)}
-                aria-labelledby={getExpressionTabButtonId(VIEW_TAB_ID)}
-                hidden={activeExpressionTab !== VIEW_TAB_ID}
-                className="expression-tab-panel"
-              >
-                <label className="input-label" htmlFor="view-expression-editor">
-                  View extent expression
-                </label>
-                <div
-                  className="editor-container editor-container-fill"
-                  data-editor-id={VIEW_TAB_ID}
-                  id="view-expression-editor"
-                >
-                  <FuncScriptEditor
-                    value={viewExpression}
-                    onChange={handleViewExpressionChange}
-                    minHeight={0}
-                    style={{ flex: 1 }}
-                  />
-                </div>
-                <StatusMessage
-                  error={viewEvaluation.error}
-                  warning={viewInterpretation.warning}
-                  success={viewInterpretation.extent ? 'Extent ready.' : null}
-                />
-              </div>
-              {customTabs.map((tab) => {
-                const panelId = getExpressionTabPanelId(tab.id);
-                const buttonId = getExpressionTabButtonId(tab.id);
-                const evaluation = customTabEvaluations.get(tab.id);
-                const draftTab =
-                  draftCustomTabs?.find((draft) => draft.id === tab.id) ?? tab;
-                return (
-                  <div
-                    key={tab.id}
-                    role="tabpanel"
-                    id={panelId}
-                    aria-labelledby={buttonId}
-                    hidden={activeExpressionTab !== tab.id}
-                    className="expression-tab-panel"
+                  <button
+                    type="button"
+                    role="tab"
+                    id={getExpressionTabButtonId(VIEW_TAB_ID)}
+                    aria-controls={getExpressionTabPanelId(VIEW_TAB_ID)}
+                    aria-selected={isViewTabActive}
+                    tabIndex={isViewTabActive ? 0 : -1}
+                    className={`expression-tab${isViewTabActive ? ' expression-tab-active' : ''}`}
+                    onClick={() => handleExpressionTabSelect(VIEW_TAB_ID)}
                   >
-                    <label className="input-label" htmlFor={`custom-expression-editor-${tab.id}`}>
-                      {tab.name} expression
-                    </label>
-                    <div
-                      className="editor-container editor-container-fill"
-                      data-editor-id={tab.id}
-                      id={`custom-expression-editor-${tab.id}`}
-                      onBlur={handleCustomTabExpressionBlur}
+                    View extent
+                  </button>
+                  {customTabs.map((tab) => {
+                    const customActive = activeExpressionTab === tab.id;
+                    const evaluation = customTabEvaluations.get(tab.id);
+                    const hasError = Boolean(evaluation?.error);
+                    const className = [
+                      'expression-tab',
+                      customActive ? 'expression-tab-active' : '',
+                      hasError ? 'expression-tab-error-state' : ''
+                    ]
+                      .filter(Boolean)
+                      .join(' ');
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        role="tab"
+                        id={getExpressionTabButtonId(tab.id)}
+                        aria-controls={getExpressionTabPanelId(tab.id)}
+                        aria-selected={customActive}
+                        tabIndex={customActive ? 0 : -1}
+                        className={className}
+                        onClick={() => handleExpressionTabSelect(tab.id)}
+                      >
+                        {tab.name}
+                      </button>
+                    );
+                  })}
+                  {tabNameDraft !== null ? (
+                    <input
+                      ref={newTabInputRef}
+                      className="expression-tab-input"
+                      value={tabNameDraft}
+                      onChange={handleTabNameDraftChange}
+                      onKeyDown={handleTabNameDraftKeyDown}
+                      onBlur={handleTabNameDraftBlur}
+                      aria-label="New tab name"
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className="expression-tab expression-tab-add"
+                      onClick={handleAddTabClick}
+                      aria-label="Add expression tab"
                     >
-                      <FuncScriptEditor
-                        value={draftTab.expression}
-                        onChange={(value: string) => handleCustomTabExpressionChange(tab.id, value)}
-                        minHeight={0}
-                        style={{ flex: 1 }}
-                      />
-                    </div>
-                    <StatusMessage
-                      error={evaluation?.error ?? null}
-                      success={!evaluation?.error ? 'Value ready.' : null}
+                      +
+                    </button>
+                  )}
+                </div>
+                {tabNameDraftError ? (
+                  <p className="expression-tab-error" role="alert">
+                    {tabNameDraftError}
+                  </p>
+                ) : null}
+              </div>
+              <div className="expression-tab-panels">
+                <div
+                  role="tabpanel"
+                  id={getExpressionTabPanelId(GRAPHICS_TAB_ID)}
+                  aria-labelledby={getExpressionTabButtonId(GRAPHICS_TAB_ID)}
+                  hidden={activeExpressionTab !== GRAPHICS_TAB_ID}
+                  className="expression-tab-panel"
+                >
+                  <label className="input-label" htmlFor="graphics-expression-editor">
+                    Graphics expression
+                  </label>
+                  <div
+                    className="editor-container editor-container-fill"
+                    data-editor-id={GRAPHICS_TAB_ID}
+                    id="graphics-expression-editor"
+                  >
+                    <FuncScriptEditor
+                      value={graphicsExpression}
+                      onChange={handleGraphicsExpressionChange}
+                      minHeight={0}
+                      style={{ flex: 1 }}
                     />
                   </div>
-                );
-              })}
+                  <StatusMessage
+                    error={graphicsEvaluation.error}
+                    warning={graphicsInterpretation.warning ?? unknownTypesWarning}
+                    info={preparedGraphics.warnings.concat(renderWarnings)}
+                    success={preparedGraphics.layers.length > 0 ? 'Graphics ready.' : null}
+                  />
+                </div>
+                <div
+                  role="tabpanel"
+                  id={getExpressionTabPanelId(VIEW_TAB_ID)}
+                  aria-labelledby={getExpressionTabButtonId(VIEW_TAB_ID)}
+                  hidden={activeExpressionTab !== VIEW_TAB_ID}
+                  className="expression-tab-panel"
+                >
+                  <label className="input-label" htmlFor="view-expression-editor">
+                    View extent expression
+                  </label>
+                  <div
+                    className="editor-container editor-container-fill"
+                    data-editor-id={VIEW_TAB_ID}
+                    id="view-expression-editor"
+                  >
+                    <FuncScriptEditor
+                      value={viewExpression}
+                      onChange={handleViewExpressionChange}
+                      minHeight={0}
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                  <StatusMessage
+                    error={viewEvaluation.error}
+                    warning={viewInterpretation.warning}
+                    success={viewInterpretation.extent ? 'Extent ready.' : null}
+                  />
+                </div>
+                {customTabs.map((tab) => {
+                  const panelId = getExpressionTabPanelId(tab.id);
+                  const buttonId = getExpressionTabButtonId(tab.id);
+                  const evaluation = customTabEvaluations.get(tab.id);
+                  const draftTab =
+                    draftCustomTabs?.find((draft) => draft.id === tab.id) ?? tab;
+                  return (
+                    <div
+                      key={tab.id}
+                      role="tabpanel"
+                      id={panelId}
+                      aria-labelledby={buttonId}
+                      hidden={activeExpressionTab !== tab.id}
+                      className="expression-tab-panel"
+                    >
+                      <label className="input-label" htmlFor={`custom-expression-editor-${tab.id}`}>
+                        {tab.name} expression
+                      </label>
+                      <div
+                        className="editor-container editor-container-fill"
+                        data-editor-id={tab.id}
+                        id={`custom-expression-editor-${tab.id}`}
+                        onBlur={handleCustomTabExpressionBlur}
+                      >
+                        <FuncScriptEditor
+                          value={draftTab.expression}
+                          onChange={(value: string) => handleCustomTabExpressionChange(tab.id, value)}
+                          minHeight={0}
+                          style={{ flex: 1 }}
+                        />
+                      </div>
+                      <StatusMessage
+                        error={evaluation?.error ?? null}
+                        success={!evaluation?.error ? 'Value ready.' : null}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
-      </section>
-    </div>
+        </section>
+
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize panels"
+          tabIndex={0}
+          className={`splitter${dragging ? ' splitter-dragging' : ''}`}
+          onMouseDown={handleSplitterMouseDown}
+          onTouchStart={handleSplitterTouchStart}
+          onKeyDown={handleSplitterKeyDown}
+        />
+
+        <section className="panel panel-right">
+          <div className="panel-body panel-body-left">
+            <div className="panel-header-controls">
+              <div className="panel-meta">
+                <span>Primitives: {totalPrimitives}</span>
+                <span>
+                  Canvas: {Math.round(canvasSize.cssWidth)}px × {Math.round(canvasSize.cssHeight)}px @ {canvasSize.dpr.toFixed(2)}x
+                </span>
+                <span>
+                  View span:{' '}
+                  {viewInterpretation.extent
+                    ? `${(viewInterpretation.extent.maxX - viewInterpretation.extent.minX).toFixed(2)} × ${(viewInterpretation.extent.maxY - viewInterpretation.extent.minY).toFixed(2)}`
+                    : '—'}
+                </span>
+              </div>
+              <div className="animation-controls">
+                <span className="time-display">t = {time.toFixed(2)}s</span>
+                <div className="animation-buttons">
+                  <button
+                    type="button"
+                    className="control-button"
+                    onClick={handlePlay}
+                    disabled={isPlaying}
+                    aria-label="Play"
+                  >
+                    ▶
+                  </button>
+                  <button
+                    type="button"
+                    className="control-button"
+                    onClick={handlePause}
+                    disabled={!isPlaying}
+                    aria-label="Pause"
+                  >
+                    ⏸
+                  </button>
+                  <button
+                    type="button"
+                    className="control-button"
+                    onClick={handleReset}
+                    aria-label="Reset"
+                  >
+                    ⟲
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div ref={canvasWrapperRef} className="canvas-wrapper">
+              <canvas ref={canvasRef} className="preview-canvas" />
+              {!canvasReady ? (
+                <div className="canvas-notice">
+                  <p>Awaiting view extent and primitive output.</p>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      </div>
+      <ReferencePopup
+        open={referenceOpen}
+        selection={referenceSelection}
+        onSelect={handleReferenceSelectionChange}
+        onClose={handleReferenceClose}
+      />
+      <ExamplePopup
+        open={exampleOpen}
+        currentId={selectedExampleId === 'custom' ? null : selectedExampleId}
+        onSelect={handleExampleLoad}
+        onClose={handleExampleClose}
+      />
+    </>
   );
 };
+
+type ReferencePopupProps = {
+  open: boolean;
+  selection: string;
+  onSelect: (value: string) => void;
+  onClose: () => void;
+};
+
+function ReferencePopup({ open, selection, onSelect, onClose }: ReferencePopupProps): JSX.Element | null {
+  if (!open) {
+    return null;
+  }
+
+  const current = PRIMITIVE_REFERENCE.find((entry) => entry.name === selection) ?? PRIMITIVE_REFERENCE[0] ?? null;
+
+  const handleBackgroundClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (event.currentTarget === event.target) {
+      onClose();
+    }
+  };
+
+  const handleSelectChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    onSelect(event.target.value);
+  };
+
+  return (
+    <div
+      className="dialog-overlay"
+      onClick={handleBackgroundClick}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reference-title"
+    >
+      <div className="dialog">
+        <header className="dialog-header">
+          <h2 id="reference-title">Reference</h2>
+          <button type="button" className="dialog-close" onClick={onClose} aria-label="Close reference">
+            ×
+          </button>
+        </header>
+        <div className="dialog-body">
+          <label className="input-label" htmlFor="reference-select">
+            Topic
+          </label>
+          <select
+            id="reference-select"
+            className="dialog-select"
+            value={current?.name ?? ''}
+            onChange={handleSelectChange}
+          >
+            {PRIMITIVE_REFERENCE.map((entry) => (
+              <option key={entry.name} value={entry.name}>
+                {entry.title}
+              </option>
+            ))}
+          </select>
+          {current ? (
+            <article className="dialog-card">
+              <p className="dialog-description">{current.description}</p>
+              <pre className="dialog-example">
+                <code>{current.example}</code>
+              </pre>
+            </article>
+          ) : (
+            <p className="dialog-empty">No topics available.</p>
+          )}
+        </div>
+        <footer className="dialog-footer">
+          <button type="button" className="control-button" onClick={onClose}>
+            Close
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+type ExamplePopupProps = {
+  open: boolean;
+  currentId: string | null;
+  onSelect: (id: string) => void;
+  onClose: () => void;
+};
+
+function ExamplePopup({ open, currentId, onSelect, onClose }: ExamplePopupProps): JSX.Element | null {
+  if (!open) {
+    return null;
+  }
+
+  const handleBackgroundClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (event.currentTarget === event.target) {
+      onClose();
+    }
+  };
+
+  return (
+    <div
+      className="dialog-overlay"
+      onClick={handleBackgroundClick}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="example-dialog-title"
+    >
+      <div className="dialog">
+        <header className="dialog-header">
+          <h2 id="example-dialog-title">Load Example</h2>
+          <button type="button" className="dialog-close" onClick={onClose} aria-label="Close example list">
+            ×
+          </button>
+        </header>
+        <div className="dialog-body">
+          <p className="dialog-description" style={{ marginBottom: 4 }}>
+            Choose a preset to replace the current workspace.
+          </p>
+          <ul className="dialog-option-list">
+            {examples.map((example) => {
+              const active = currentId === example.id;
+              const className = active
+                ? 'dialog-option-button dialog-option-button-active'
+                : 'dialog-option-button';
+              return (
+                <li key={example.id}>
+                  <button type="button" className={className} onClick={() => onSelect(example.id)}>
+                    {example.name}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+        <footer className="dialog-footer">
+          <button type="button" className="control-button" onClick={onClose}>
+            Cancel
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
 
 const StatusMessage = ({
   error,
