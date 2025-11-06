@@ -194,20 +194,25 @@ class WorkspaceFolderProvider extends KeyValueCollection {
       const evaluation = this.manager.evaluateTab(tab, this);
       return evaluation.typed ?? typedNull();
     }
-    return super.get(name);
+    const parent = (this as unknown as { parent: FsDataProvider | null }).parent ?? null;
+    return parent ? parent.get(name) : null;
   }
 
   public override isDefined(name: string): boolean {
     if (this.findTab(name)) {
       return true;
     }
-    return super.isDefined(name);
+    const parent = (this as unknown as { parent: FsDataProvider | null }).parent ?? null;
+    return parent ? parent.isDefined(name) : false;
   }
 
   public override getAll(): Array<[string, TypedValue]> {
     const entries: Array<[string, TypedValue]> = [];
     const tabs = this.manager.getFolderTabs(this.folderId);
     for (const tab of tabs) {
+      if (tab.name.toLowerCase() === 'return') {
+        continue;
+      }
       const evaluation = this.manager.evaluateTab(tab, this);
       entries.push([tab.name, evaluation.typed ?? typedNull()]);
     }
@@ -233,14 +238,6 @@ class WorkspaceEnvironmentProvider extends Engine.FsDataProvider {
     }
   }
 
-  private getFolderProvider(name: string): WorkspaceFolderProvider | null {
-    const folderId = this.manager.findFolderIdByName(name.toLowerCase());
-    if (!folderId) {
-      return null;
-    }
-    return this.manager.getFolderProvider(folderId);
-  }
-
   public override get(name: string): TypedValue | null {
     const lower = name.toLowerCase();
     if (lower === 't') {
@@ -254,9 +251,9 @@ class WorkspaceEnvironmentProvider extends Engine.FsDataProvider {
       const evaluation = this.manager.evaluateTab(rootTab, this);
       return evaluation.typed ?? typedNull();
     }
-    const folderProvider = this.getFolderProvider(lower);
-    if (folderProvider) {
-      return ensureTyped(folderProvider);
+    const folderId = this.manager.findFolderIdByName(lower);
+    if (folderId) {
+      return this.manager.getFolderValue(folderId);
     }
     return super.get(name);
   }
@@ -287,6 +284,7 @@ export class WorkspaceEvaluationManager {
   private readonly folderDefinitions = new Map<string, WorkspaceFolderDefinition>();
   private readonly folderNameByLower = new Map<string, string>();
   private readonly folderTabMaps = new Map<string, Map<string, CustomTabState>>();
+  private readonly folderReturnTabs = new Map<string, CustomTabState>();
   private readonly evaluations = new Map<string, EvaluationResult>();
   private readonly evaluating = new Set<string>();
   private readonly folderProviders = new Map<string, WorkspaceFolderProvider>();
@@ -311,9 +309,13 @@ export class WorkspaceEvaluationManager {
     for (const tab of tabs) {
       if (tab.folderId && this.folderDefinitions.has(tab.folderId)) {
         const definition = this.folderDefinitions.get(tab.folderId)!;
+        const lowerName = tab.name.toLowerCase();
         definition.tabs.push(tab);
         const nameMap = this.folderTabMaps.get(tab.folderId)!;
-        nameMap.set(tab.name.toLowerCase(), tab);
+        nameMap.set(lowerName, tab);
+        if (lowerName === 'return' && !this.folderReturnTabs.has(tab.folderId)) {
+          this.folderReturnTabs.set(tab.folderId, tab);
+        }
       } else {
         rootAccumulator.push(tab);
         this.rootTabByName.set(tab.name.toLowerCase(), tab);
@@ -376,6 +378,16 @@ export class WorkspaceEvaluationManager {
       return null;
     }
     return map.get(lower) ?? null;
+  }
+
+  public getFolderValue(folderId: string): TypedValue {
+    const returnTab = this.folderReturnTabs.get(folderId);
+    if (returnTab) {
+      const provider = this.getFolderProvider(folderId);
+      const evaluation = this.evaluateTab(returnTab, provider);
+      return evaluation.typed ?? typedNull();
+    }
+    return ensureTyped(this.getFolderProvider(folderId));
   }
 
   public evaluateTab(tab: CustomTabState, provider: FsDataProvider): EvaluationResult {
