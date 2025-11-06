@@ -31,7 +31,7 @@ const MIN_RIGHT_WIDTH = 320;
 const DEFAULT_RATIO = 0.45;
 const BACKGROUND_COLOR = '#0f172a';
 const GRID_COLOR = 'rgba(148, 163, 184, 0.2)';
-const GRAPHICS_TAB_ID = 'graphics';
+const MAIN_TAB_ID = 'main';
 const VIEW_TAB_ID = 'view';
 
 type CustomTabState = {
@@ -161,8 +161,8 @@ const createCustomTabsFromDefinitions = (definitions?: CustomTabDefinition[]): C
 };
 
 const getExpressionTabButtonId = (tabId: string) => {
-  if (tabId === GRAPHICS_TAB_ID) {
-    return 'graphics-expression-tab';
+  if (tabId === MAIN_TAB_ID) {
+    return 'main-expression-tab';
   }
   if (tabId === VIEW_TAB_ID) {
     return 'view-expression-tab';
@@ -171,8 +171,8 @@ const getExpressionTabButtonId = (tabId: string) => {
 };
 
 const getExpressionTabPanelId = (tabId: string) => {
-  if (tabId === GRAPHICS_TAB_ID) {
-    return 'graphics-expression-panel';
+  if (tabId === MAIN_TAB_ID) {
+    return 'main-expression-panel';
   }
   if (tabId === VIEW_TAB_ID) {
     return 'view-expression-panel';
@@ -455,16 +455,16 @@ const App = (): JSX.Element => {
     const persisted = persistedStateRef.current;
     const candidate = persisted?.activeExpressionTab;
     if (!candidate) {
-      return GRAPHICS_TAB_ID;
+      return MAIN_TAB_ID;
     }
-    if (candidate === GRAPHICS_TAB_ID || candidate === VIEW_TAB_ID) {
+    if (candidate === MAIN_TAB_ID || candidate === VIEW_TAB_ID) {
       return candidate;
     }
     const persistedCustomTabs = persisted?.customTabs ?? [];
     if (persistedCustomTabs.some((tab) => tab.id === candidate)) {
       return candidate;
     }
-    return GRAPHICS_TAB_ID;
+    return MAIN_TAB_ID;
   });
   const [tabNameDraft, setTabNameDraft] = useState<string | null>(null);
   const [tabNameDraftError, setTabNameDraftError] = useState<string | null>(null);
@@ -628,7 +628,7 @@ const App = (): JSX.Element => {
         return;
       }
       setExampleOpen(false);
-      setActiveExpressionTab(GRAPHICS_TAB_ID);
+      setActiveExpressionTab(MAIN_TAB_ID);
       setTabNameDraft(null);
       setSelectedExampleId(exampleId);
     },
@@ -672,7 +672,7 @@ const App = (): JSX.Element => {
       }
       return;
     }
-    const existingNames = new Set<string>([GRAPHICS_TAB_ID, VIEW_TAB_ID]);
+    const existingNames = new Set<string>([MAIN_TAB_ID, VIEW_TAB_ID]);
     for (const tab of customTabs) {
       existingNames.add(tab.name.toLowerCase());
     }
@@ -698,7 +698,7 @@ const App = (): JSX.Element => {
         return false;
       }
       const lowerName = trimmedName.toLowerCase();
-      const existingNames = new Set<string>([GRAPHICS_TAB_ID, VIEW_TAB_ID]);
+      const existingNames = new Set<string>([MAIN_TAB_ID, VIEW_TAB_ID]);
       for (const tab of customTabs) {
         existingNames.add(tab.name.toLowerCase());
       }
@@ -1005,7 +1005,7 @@ const App = (): JSX.Element => {
     setViewExpression(defaultViewExpression);
     setGraphicsExpression(`{\n  return []; // See reference for supported primitives.\n}`);
     setCustomTabs([]);
-    setActiveExpressionTab(GRAPHICS_TAB_ID);
+    setActiveExpressionTab(MAIN_TAB_ID);
     drawImmediate();
   }, [drawImmediate, stopAnimation]);
 
@@ -1025,7 +1025,7 @@ const App = (): JSX.Element => {
     setGraphicsExpression(example.graphics);
     setCustomTabs(createCustomTabsFromDefinitions(example.customTabs));
     setTabNameDraft(null);
-    setActiveExpressionTab(GRAPHICS_TAB_ID);
+    setActiveExpressionTab(MAIN_TAB_ID);
   }, [selectedExampleId, stopAnimation]);
 
   useEffect(() => {
@@ -1119,7 +1119,7 @@ const App = (): JSX.Element => {
     preparedGraphics.layers.length > 0 &&
     viewInterpretation.extent !== null;
 
-  const isGraphicsTabActive = activeExpressionTab === GRAPHICS_TAB_ID;
+  const isMainTabActive = activeExpressionTab === MAIN_TAB_ID;
   const isViewTabActive = activeExpressionTab === VIEW_TAB_ID;
 
   return (
@@ -1139,32 +1139,37 @@ const App = (): JSX.Element => {
                   <span className="app-title-draw">Draw</span>
                 </h1>
               </div>
-              <div className="top-controls-actions">
+              <div className="top-controls-actions" role="group" aria-label="Workspace actions">
                 <button
                   type="button"
-                  className="dialog-button"
+                  className="icon-button"
                   onClick={handleClear}
+                  aria-label="Clear workspace"
+                  title="Clear workspace"
                 >
-                  Clear
+                  <span aria-hidden="true">🧹</span>
                 </button>
                 <button
                   type="button"
-                  className="dialog-button"
+                  className="icon-button"
                   onClick={handleExampleOpen}
                   aria-haspopup="dialog"
                   aria-expanded={exampleOpen}
+                  aria-label="Load example"
+                  title="Load example"
                 >
-                  Load Example
+                  <span aria-hidden="true">📂</span>
                 </button>
-
                 <button
                   type="button"
-                  className="dialog-button dialog-button-reference"
+                  className="icon-button"
                   onClick={handleReferenceOpen}
                   aria-haspopup="dialog"
                   aria-expanded={referenceOpen}
+                  aria-label="Open reference"
+                  title="Open reference"
                 >
-                  Reference
+                  <span aria-hidden="true">❔</span>
                 </button>
               </div>
             </div>
@@ -1179,14 +1184,14 @@ const App = (): JSX.Element => {
                   <button
                     type="button"
                     role="tab"
-                    id={getExpressionTabButtonId(GRAPHICS_TAB_ID)}
-                    aria-controls={getExpressionTabPanelId(GRAPHICS_TAB_ID)}
-                    aria-selected={isGraphicsTabActive}
-                    tabIndex={isGraphicsTabActive ? 0 : -1}
-                    className={`expression-tab${isGraphicsTabActive ? ' expression-tab-active' : ''}`}
-                    onClick={() => handleExpressionTabSelect(GRAPHICS_TAB_ID)}
+                    id={getExpressionTabButtonId(MAIN_TAB_ID)}
+                    aria-controls={getExpressionTabPanelId(MAIN_TAB_ID)}
+                    aria-selected={isMainTabActive}
+                    tabIndex={isMainTabActive ? 0 : -1}
+                    className={`expression-tab${isMainTabActive ? ' expression-tab-active' : ''}`}
+                    onClick={() => handleExpressionTabSelect(MAIN_TAB_ID)}
                   >
-                    Graphics
+                    Main
                   </button>
                   <button
                     type="button"
@@ -1198,7 +1203,7 @@ const App = (): JSX.Element => {
                     className={`expression-tab${isViewTabActive ? ' expression-tab-active' : ''}`}
                     onClick={() => handleExpressionTabSelect(VIEW_TAB_ID)}
                   >
-                    View extent
+                    View
                   </button>
                   {customTabs.map((tab) => {
                     const customActive = activeExpressionTab === tab.id;
@@ -1257,18 +1262,18 @@ const App = (): JSX.Element => {
               <div className="expression-tab-panels">
                 <div
                   role="tabpanel"
-                  id={getExpressionTabPanelId(GRAPHICS_TAB_ID)}
-                  aria-labelledby={getExpressionTabButtonId(GRAPHICS_TAB_ID)}
-                  hidden={activeExpressionTab !== GRAPHICS_TAB_ID}
+                  id={getExpressionTabPanelId(MAIN_TAB_ID)}
+                  aria-labelledby={getExpressionTabButtonId(MAIN_TAB_ID)}
+                  hidden={activeExpressionTab !== MAIN_TAB_ID}
                   className="expression-tab-panel"
                 >
-                  <label className="input-label" htmlFor="graphics-expression-editor">
-                    Graphics expression
+                  <label className="input-label" htmlFor="main-expression-editor">
+                    Main expression
                   </label>
                   <div
                     className="editor-container editor-container-fill"
-                    data-editor-id={GRAPHICS_TAB_ID}
-                    id="graphics-expression-editor"
+                    data-editor-id={MAIN_TAB_ID}
+                    id="main-expression-editor"
                   >
                     <FuncScriptEditor
                       value={graphicsExpression}
@@ -1277,12 +1282,12 @@ const App = (): JSX.Element => {
                       style={{ flex: 1 }}
                     />
                   </div>
-                  <StatusMessage
-                    error={graphicsEvaluation.error}
-                    warning={graphicsInterpretation.warning ?? unknownTypesWarning}
-                    info={preparedGraphics.warnings.concat(renderWarnings)}
-                    success={preparedGraphics.layers.length > 0 ? 'Graphics ready.' : null}
-                  />
+                    <StatusMessage
+                      error={graphicsEvaluation.error}
+                      warning={graphicsInterpretation.warning ?? unknownTypesWarning}
+                      info={preparedGraphics.warnings.concat(renderWarnings)}
+                      success={preparedGraphics.layers.length > 0 ? 'Main ready.' : null}
+                    />
                 </div>
                 <div
                   role="tabpanel"
@@ -1292,7 +1297,7 @@ const App = (): JSX.Element => {
                   className="expression-tab-panel"
                 >
                   <label className="input-label" htmlFor="view-expression-editor">
-                    View extent expression
+                    View expression
                   </label>
                   <div
                     className="editor-container editor-container-fill"
@@ -1365,24 +1370,24 @@ const App = (): JSX.Element => {
 
         <section className="panel panel-right">
           <div className="panel-body panel-body-left">
-            <div className="panel-header-controls">
-              <div className="panel-meta">
-                <span>Primitives: {totalPrimitives}</span>
-                <span>
-                  Canvas: {Math.round(canvasSize.cssWidth)}px × {Math.round(canvasSize.cssHeight)}px @ {canvasSize.dpr.toFixed(2)}x
-                </span>
-                <span>
-                  View span:{' '}
-                  {viewInterpretation.extent
-                    ? `${(viewInterpretation.extent.maxX - viewInterpretation.extent.minX).toFixed(2)} × ${(viewInterpretation.extent.maxY - viewInterpretation.extent.minY).toFixed(2)}`
-                    : '—'}
-                </span>
-              </div>
-              <div className="animation-controls">
-                <span className="time-display">t = {time.toFixed(2)}s</span>
-                <div className="animation-buttons">
-                  <button
-                    type="button"
+          <div className="panel-header-controls">
+            <div className="panel-meta">
+              <span>Primitives: {totalPrimitives}</span>
+              <span>
+                Canvas: {Math.round(canvasSize.cssWidth)}px × {Math.round(canvasSize.cssHeight)}px @ {canvasSize.dpr.toFixed(2)}x
+              </span>
+              <span>
+                View span:{' '}
+                {viewInterpretation.extent
+                  ? `${(viewInterpretation.extent.maxX - viewInterpretation.extent.minX).toFixed(2)} × ${(viewInterpretation.extent.maxY - viewInterpretation.extent.minY).toFixed(2)}`
+                  : '—'}
+              </span>
+              <span className="time-display">t = {time.toFixed(2)}s</span>
+            </div>
+            <div className="animation-controls">
+              <div className="animation-buttons">
+                <button
+                  type="button"
                     className="control-button"
                     onClick={handlePlay}
                     disabled={isPlaying}

@@ -61,7 +61,7 @@
 
 .top-controls {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
@@ -134,10 +134,9 @@
 
 .top-controls-actions {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: stretch;
-  min-width: 180px;
+  flex-direction: row;
+  gap: 10px;
+  align-items: center;
 }
 
 .dialog-button {
@@ -181,6 +180,36 @@
 .top-controls-actions .dialog-button {
   width: 100%;
   text-align: center;
+}
+
+.icon-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(59, 130, 246, 0.18);
+  color: #f8fafc;
+  font-size: 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 140ms ease, transform 140ms ease, color 140ms ease;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.35);
+}
+
+.icon-button span {
+  line-height: 1;
+}
+
+.icon-button:hover {
+  background: rgba(59, 130, 246, 0.35);
+  transform: translateY(-1px);
+}
+
+.icon-button:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
 }
 
 .dialog-overlay {
@@ -480,46 +509,59 @@
   min-height: 0;
 }
 
+
+
 .expression-tabs {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: stretch;
   flex: 1;
   min-height: 0;
-  gap: 16px;
+  gap: 0 16px;
 }
 
 .expression-tabs-header {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 12px;
+  padding-right: 4px;
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
 }
 
 .expression-tabs-list {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  padding: 4px;
-  border-radius: 999px;
+  padding: 12px;
+  border-radius: 14px;
   background: rgba(15, 23, 42, 0.65);
   border: 1px solid rgba(148, 163, 184, 0.2);
-  align-self: flex-start;
-  flex-wrap: wrap;
+  align-self: stretch;
+  width: 190px;
+  max-height: 100%;
+  overflow-y: auto;
 }
 
 .expression-tab {
   border: none;
-  border-radius: 999px;
-  padding: 8px 18px;
+  border-radius: 12px;
+  padding: 10px 16px;
   background: transparent;
-  color: rgba(148, 163, 184, 0.8);
+  color: rgba(148, 163, 184, 0.82);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;
   transition: background 120ms ease, color 120ms ease;
+  text-align: left;
+  width: 100%;
 }
 
 .expression-tab-add {
-  min-width: 42px;
+  min-width: 0;
+  width: 100%;
 }
 
 .expression-tab:focus-visible {
@@ -551,7 +593,7 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  width: 160px;
+  width: 100%;
 }
 
 .expression-tab-input:focus {
@@ -570,6 +612,8 @@
   flex: 1;
   min-height: 0;
   position: relative;
+  grid-column: 2;
+  grid-row: 1;
 }
 
 .expression-tab-panel {

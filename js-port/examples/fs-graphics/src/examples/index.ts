@@ -15,13 +15,11 @@ export type ExampleDefinition = {
   customTabs: CustomTabDefinition[];
 };
 
-const viewContext = require.context('./', true, /view\.fx$/);
-const graphicsContext = require.context('./', true, /graphics\.fx$/);
-const customContext = require.context('./', true, /custom\/[^/]+\.fx$/);
+const fxContext = require.context('./', true, /\.fx$/);
 
-const collectKeys = (context: any): Set<string> => {
-  const keys: string[] = context.keys();
+const collectExampleIds = (context: any): Set<string> => {
   const ids = new Set<string>();
+  const keys: string[] = context.keys();
   for (const key of keys) {
     const normalized = key.replace(/^\.\//, '');
     const [folder] = normalized.split('/');
@@ -32,9 +30,7 @@ const collectKeys = (context: any): Set<string> => {
   return ids;
 };
 
-const viewIds = collectKeys(viewContext);
-const graphicIds = collectKeys(graphicsContext);
-const allIds = new Set<string>([...Array.from(viewIds), ...Array.from(graphicIds)]);
+const allIds = collectExampleIds(fxContext);
 
 const readModule = (context: any, path: string): string | null => {
   if (!context) {
@@ -62,24 +58,27 @@ const formatName = (id: string): string =>
 const isValidTabName = (name: string) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name);
 
 const collectCustomTabs = (id: string): CustomTabDefinition[] => {
-  if (!customContext) {
-    return [];
-  }
-
-  const prefix = `./${id}/custom/`;
+  const prefix = `./${id}/`;
   const tabs: CustomTabDefinition[] = [];
   const seen = new Set<string>();
 
-  for (const key of customContext.keys()) {
+  for (const key of fxContext.keys()) {
     if (!key.startsWith(prefix)) {
       continue;
     }
-    const expression = readModule(customContext, key);
+    const remainder = key.slice(prefix.length);
+    if (remainder.includes('/')) {
+      continue;
+    }
+    if (remainder === 'view.fx' || remainder === 'main.fx') {
+      continue;
+    }
+
+    const expression = readModule(fxContext, key);
     if (!expression) {
       continue;
     }
-    const filename = key.slice(prefix.length);
-    const baseName = filename.replace(/\.fx$/, '');
+    const baseName = remainder.replace(/\.fx$/, '');
     if (!isValidTabName(baseName)) {
       continue;
     }
@@ -99,9 +98,9 @@ const examples: ExampleDefinition[] = [];
 
 for (const id of allIds) {
   const viewPath = `./${id}/view.fx`;
-  const graphicsPath = `./${id}/graphics.fx`;
-  const view = readModule(viewContext, viewPath);
-  const graphics = readModule(graphicsContext, graphicsPath);
+  const graphicsPath = `./${id}/main.fx`;
+  const view = readModule(fxContext, viewPath);
+  const graphics = readModule(fxContext, graphicsPath);
   if (!view || !graphics) {
     continue;
   }
