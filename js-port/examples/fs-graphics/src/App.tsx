@@ -38,6 +38,12 @@ type CustomTabState = {
   id: string;
   name: string;
   expression: string;
+  folderId: string | null;
+};
+
+type CustomFolderState = {
+  id: string;
+  name: string;
 };
 
 type PrimitiveReference = {
@@ -130,12 +136,15 @@ type PersistedSnapshot = {
   graphicsExpression?: string;
   viewExpression?: string;
   customTabs?: CustomTabState[];
+  customFolders?: CustomFolderState[];
   activeExpressionTab?: string;
 };
 
 const STORAGE_KEY = 'fs-graphics-state';
 
 const createCustomTabId = () => `custom-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
+const createCustomFolderId = () =>
+  `folder-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
 
 const isValidTabName = (name: string) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name);
 
@@ -149,6 +158,49 @@ const buildDefaultTabName = (existingNames: Set<string>) => {
   return candidate;
 };
 
+const buildDefaultFolderName = (existingNames: Set<string>) => {
+  let index = 1;
+  let candidate = `Folder ${index}`;
+  while (existingNames.has(candidate.toLowerCase())) {
+    index += 1;
+    candidate = `Folder ${index}`;
+  }
+  return candidate;
+};
+
+const RenameIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+    <path
+      d="M4 13.5V16h2.5L15.08 7.42 12.58 4.92 4 13.5Zm11.71-7.79a1 1 0 0 0 0-1.42l-2-2a1 1 0 0 0-1.42 0l-1.29 1.3 3.5 3.5 1.21-1.38Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+const DeleteIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+    <path
+      d="M7 2a1 1 0 0 0-1 1v1H3.5a.5.5 0 0 0 0 1H4v11a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5h.5a.5.5 0 0 0 0-1H14V3a1 1 0 0 0-1-1H7Zm1 2h4V3H8v1Zm-1 2h8v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6Zm2 2a.5.5 0 0 0-.5.5v6a.5.5 0 1 0 1 0v-6A.5.5 0 0 0 9 8Zm3 0a.5.5 0 0 0-.5.5v6a.5.5 0 1 0 1 0v-6A.5.5 0 0 0 12 8Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+const ConfirmIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+    <path d="M16.707 5.293a1 1 0 0 0-1.414 0L8.5 12.086 5.707 9.293a1 1 0 1 0-1.414 1.414l3.5 3.5a1 1 0 0 0 1.414 0l7-7a1 1 0 0 0 0-1.414Z" fill="currentColor" />
+  </svg>
+);
+
+const CancelIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+    <path
+      d="M5.293 5.293a1 1 0 0 1 1.414 0L10 8.586l3.293-3.293a1 1 0 0 1 1.414 1.414L11.414 10l3.293 3.293a1 1 0 0 1-1.414 1.414L10 11.414l-3.293 3.293a1 1 0 0 1-1.414-1.414L8.586 10 5.293 6.707a1 1 0 0 1 0-1.414Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
 const createCustomTabsFromDefinitions = (definitions?: CustomTabDefinition[]): CustomTabState[] => {
   if (!definitions || definitions.length === 0) {
     return [];
@@ -156,7 +208,8 @@ const createCustomTabsFromDefinitions = (definitions?: CustomTabDefinition[]): C
   return definitions.map((definition) => ({
     id: createCustomTabId(),
     name: definition.name,
-    expression: definition.expression
+    expression: definition.expression,
+    folderId: null
   }));
 };
 
@@ -193,7 +246,33 @@ const sanitizeCustomTabs = (value: unknown): CustomTabState[] | undefined => {
     }
     const { id, name, expression } = entry as Partial<CustomTabState>;
     if (typeof id === 'string' && typeof name === 'string' && typeof expression === 'string') {
-      result.push({ id, name, expression });
+      let folderId: string | null = null;
+      if ('folderId' in entry) {
+        const candidate = (entry as { folderId?: unknown }).folderId;
+        if (typeof candidate === 'string') {
+          folderId = candidate;
+        } else if (candidate === null) {
+          folderId = null;
+        }
+      }
+      result.push({ id, name, expression, folderId });
+    }
+  }
+  return result;
+};
+
+const sanitizeCustomFolders = (value: unknown): CustomFolderState[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const result: CustomFolderState[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object') {
+      continue;
+    }
+    const { id, name } = entry as Partial<CustomFolderState>;
+    if (typeof id === 'string' && typeof name === 'string') {
+      result.push({ id, name });
     }
   }
   return result;
@@ -232,6 +311,12 @@ const loadPersistedSnapshot = (): PersistedSnapshot | null => {
       const sanitized = sanitizeCustomTabs(data.customTabs);
       if (sanitized) {
         snapshot.customTabs = sanitized;
+      }
+    }
+    if ('customFolders' in data) {
+      const sanitizedFolders = sanitizeCustomFolders(data.customFolders);
+      if (sanitizedFolders) {
+        snapshot.customFolders = sanitizedFolders;
       }
     }
     return snapshot;
@@ -451,6 +536,13 @@ const App = (): JSX.Element => {
     }
     return [];
   });
+  const [customFolders, setCustomFolders] = useState<CustomFolderState[]>(() => {
+    const persisted = persistedStateRef.current;
+    if (persisted?.customFolders && Array.isArray(persisted.customFolders)) {
+      return persisted.customFolders;
+    }
+    return [];
+  });
   const [activeExpressionTab, setActiveExpressionTab] = useState<string>(() => {
     const persisted = persistedStateRef.current;
     const candidate = persisted?.activeExpressionTab;
@@ -467,11 +559,19 @@ const App = (): JSX.Element => {
     return MAIN_TAB_ID;
   });
   const [tabNameDraft, setTabNameDraft] = useState<string | null>(null);
+  const [tabDraftFolderId, setTabDraftFolderId] = useState<string | null>(null);
   const [tabNameDraftError, setTabNameDraftError] = useState<string | null>(null);
   const newTabInputRef = useRef<HTMLInputElement | null>(null);
   const [pendingFocusEditorId, setPendingFocusEditorId] = useState<string | null>(null);
   const newTabInputPrimedRef = useRef(false);
   const draftCommittedRef = useRef(false);
+  const renameInputRef = useRef<HTMLInputElement | null>(null);
+  const [renameTarget, setRenameTarget] = useState<{ type: 'tab' | 'folder'; id: string } | null>(
+    null
+  );
+  const [renameDraft, setRenameDraft] = useState('');
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const renameCommittedRef = useRef(false);
 
   useEffect(() => {
     if (tabNameDraft !== null) {
@@ -482,8 +582,21 @@ const App = (): JSX.Element => {
       }
     } else {
       newTabInputPrimedRef.current = false;
+      setTabDraftFolderId(null);
     }
   }, [tabNameDraft]);
+
+  useEffect(() => {
+    if (!renameTarget) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      if (renameInputRef.current) {
+        renameInputRef.current.focus();
+        renameInputRef.current.select();
+      }
+    });
+  }, [renameTarget]);
 
   useEffect(() => {
     if (!pendingFocusEditorId) {
@@ -630,6 +743,7 @@ const App = (): JSX.Element => {
       setExampleOpen(false);
       setActiveExpressionTab(MAIN_TAB_ID);
       setTabNameDraft(null);
+      setTabDraftFolderId(null);
       setSelectedExampleId(exampleId);
     },
     []
@@ -664,23 +778,243 @@ const App = (): JSX.Element => {
     setSelectedExampleId((current) => (current === 'custom' ? current : 'custom'));
   }, []);
 
-  const handleAddTabClick = useCallback(() => {
-    if (tabNameDraft !== null) {
-      if (newTabInputRef.current) {
-        newTabInputRef.current.focus();
-        newTabInputRef.current.select();
+  const handleAddTabClick = useCallback(
+    (folderId: string | null = null) => {
+      if (tabNameDraft !== null) {
+        if (newTabInputRef.current) {
+          newTabInputRef.current.focus();
+          newTabInputRef.current.select();
+        }
+        return;
       }
-      return;
+      const existingNames = new Set<string>([MAIN_TAB_ID, VIEW_TAB_ID]);
+      for (const tab of customTabs) {
+        existingNames.add(tab.name.toLowerCase());
+      }
+      const defaultName = buildDefaultTabName(existingNames);
+      setTabDraftFolderId(folderId);
+      setTabNameDraft(defaultName);
+      setTabNameDraftError(null);
+      draftCommittedRef.current = false;
+    },
+    [customTabs, tabNameDraft]
+  );
+
+  const handleAddFolderClick = useCallback(() => {
+    const existingNames = new Set<string>();
+    for (const folder of customFolders) {
+      existingNames.add(folder.name.toLowerCase());
     }
-    const existingNames = new Set<string>([MAIN_TAB_ID, VIEW_TAB_ID]);
-    for (const tab of customTabs) {
-      existingNames.add(tab.name.toLowerCase());
-    }
-    const defaultName = buildDefaultTabName(existingNames);
-    setTabNameDraft(defaultName);
-    setTabNameDraftError(null);
-    draftCommittedRef.current = false;
-  }, [customTabs, tabNameDraft]);
+    const defaultName = buildDefaultFolderName(existingNames);
+    const newFolder: CustomFolderState = {
+      id: createCustomFolderId(),
+      name: defaultName
+    };
+    setCustomFolders((current) => [...current, newFolder]);
+    setSelectedExampleId((current) => (current === 'custom' ? current : 'custom'));
+  }, [customFolders, setCustomFolders, setSelectedExampleId]);
+
+  const cancelRename = useCallback(() => {
+    setRenameTarget(null);
+    setRenameDraft('');
+    setRenameError(null);
+    renameCommittedRef.current = false;
+  }, []);
+
+  const handleRenameTabStart = useCallback(
+    (tab: CustomTabState) => {
+      setTabNameDraft(null);
+      setTabNameDraftError(null);
+      setTabDraftFolderId(null);
+      setRenameTarget({ type: 'tab', id: tab.id });
+      setRenameDraft(tab.name);
+      setRenameError(null);
+      renameCommittedRef.current = false;
+    },
+    []
+  );
+
+  const handleRenameFolderStart = useCallback(
+    (folder: CustomFolderState) => {
+      setTabNameDraft(null);
+      setTabNameDraftError(null);
+      setTabDraftFolderId(null);
+      setRenameTarget({ type: 'folder', id: folder.id });
+      setRenameDraft(folder.name);
+      setRenameError(null);
+      renameCommittedRef.current = false;
+    },
+    []
+  );
+
+  const commitRename = useCallback(
+    (rawValue?: string) => {
+      if (!renameTarget) {
+        return false;
+      }
+      const inputValue = rawValue ?? renameDraft;
+      const trimmed = inputValue.trim();
+      if (!trimmed) {
+        setRenameError('Name is required.');
+        return false;
+      }
+      if (renameTarget.type === 'tab') {
+        const currentTab = customTabs.find((tab) => tab.id === renameTarget.id);
+        if (!currentTab) {
+          cancelRename();
+          return false;
+        }
+        if (trimmed === currentTab.name) {
+          cancelRename();
+          return true;
+        }
+        if (!isValidTabName(trimmed)) {
+          setRenameError('Use letters, digits, or underscores; start with a letter or underscore.');
+          return false;
+        }
+        const existingNames = new Set<string>([MAIN_TAB_ID, VIEW_TAB_ID]);
+        for (const tab of customTabs) {
+          if (tab.id !== renameTarget.id) {
+            existingNames.add(tab.name.toLowerCase());
+          }
+        }
+        const lower = trimmed.toLowerCase();
+        if (existingNames.has(lower)) {
+          setRenameError('That name is already in use.');
+          return false;
+        }
+        setCustomTabs((current) =>
+          current.map((tab) => (tab.id === renameTarget.id ? { ...tab, name: trimmed } : tab))
+        );
+        setSelectedExampleId((current) => (current === 'custom' ? current : 'custom'));
+        if (activeExpressionTab === renameTarget.id) {
+          setPendingFocusEditorId(renameTarget.id);
+        }
+      } else {
+        const currentFolder = customFolders.find((folder) => folder.id === renameTarget.id);
+        if (!currentFolder) {
+          cancelRename();
+          return false;
+        }
+        if (trimmed === currentFolder.name) {
+          cancelRename();
+          return true;
+        }
+        const lower = trimmed.toLowerCase();
+        for (const folder of customFolders) {
+          if (folder.id !== renameTarget.id && folder.name.toLowerCase() === lower) {
+            setRenameError('That name is already in use.');
+            return false;
+          }
+        }
+        setCustomFolders((current) =>
+          current.map((folder) => (folder.id === renameTarget.id ? { ...folder, name: trimmed } : folder))
+        );
+        setSelectedExampleId((current) => (current === 'custom' ? current : 'custom'));
+      }
+      renameCommittedRef.current = true;
+      setRenameTarget(null);
+      setRenameDraft('');
+      setRenameError(null);
+      return true;
+    },
+    [
+      activeExpressionTab,
+      customFolders,
+      customTabs,
+      renameDraft,
+      renameTarget,
+      setCustomFolders,
+      setCustomTabs,
+      setPendingFocusEditorId,
+      setSelectedExampleId,
+      setRenameError,
+      setRenameTarget
+    ]
+  );
+
+  const handleRenameDraftChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setRenameDraft(event.target.value);
+    setRenameError(null);
+    renameCommittedRef.current = false;
+  }, []);
+
+  const handleRenameDraftKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        const committed = commitRename(event.currentTarget.value);
+        if (committed && event.currentTarget) {
+          event.currentTarget.blur();
+        }
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        cancelRename();
+      }
+    },
+    [cancelRename, commitRename]
+  );
+
+  const handleRenameDraftBlur = useCallback(
+    (event: FocusEvent<HTMLInputElement>) => {
+      if (renameCommittedRef.current) {
+        renameCommittedRef.current = false;
+        return;
+      }
+      const committed = commitRename(event.currentTarget.value);
+      if (!committed) {
+        requestAnimationFrame(() => {
+          if (renameInputRef.current) {
+            renameInputRef.current.focus();
+            renameInputRef.current.select();
+          }
+        });
+      }
+    },
+    [commitRename]
+  );
+
+  const handleRemoveTab = useCallback(
+    (tabId: string) => {
+      setCustomTabs((current) => current.filter((tab) => tab.id !== tabId));
+      setSelectedExampleId((current) => (current === 'custom' ? current : 'custom'));
+      if (renameTarget && renameTarget.type === 'tab' && renameTarget.id === tabId) {
+        cancelRename();
+      }
+      setActiveExpressionTab((current) => (current === tabId ? MAIN_TAB_ID : current));
+    },
+    [cancelRename, renameTarget]
+  );
+
+  const handleRemoveFolder = useCallback(
+    (folderId: string) => {
+      const removedTabIds = new Set<string>();
+      for (const tab of customTabs) {
+        if (tab.folderId === folderId) {
+          removedTabIds.add(tab.id);
+        }
+      }
+      setCustomFolders((current) => current.filter((folder) => folder.id !== folderId));
+      setCustomTabs((current) => current.filter((tab) => tab.folderId !== folderId));
+      setSelectedExampleId((current) => (current === 'custom' ? current : 'custom'));
+      if (renameTarget) {
+        if (renameTarget.type === 'folder' && renameTarget.id === folderId) {
+          cancelRename();
+        } else if (renameTarget.type === 'tab' && removedTabIds.has(renameTarget.id)) {
+          cancelRename();
+        }
+      }
+      if (tabDraftFolderId === folderId) {
+        setTabNameDraft(null);
+        setTabNameDraftError(null);
+        setTabDraftFolderId(null);
+      }
+      setActiveExpressionTab((current) =>
+        removedTabIds.has(current) ? MAIN_TAB_ID : current
+      );
+    },
+    [cancelRename, customTabs, renameTarget, tabDraftFolderId]
+  );
 
   const commitCustomTabDraft = useCallback(
     (rawName?: string) => {
@@ -710,17 +1044,19 @@ const App = (): JSX.Element => {
       const newTab: CustomTabState = {
         id: createCustomTabId(),
         name: trimmedName,
-        expression: '{\n  return 0;\n}'
+        expression: '{\n  return 0;\n}',
+        folderId: tabDraftFolderId
       };
       setCustomTabs((current) => [...current, newTab]);
       setActiveExpressionTab(newTab.id);
       setTabNameDraft(null);
+      setTabDraftFolderId(null);
       setTabNameDraftError(null);
       setPendingFocusEditorId(newTab.id);
       draftCommittedRef.current = true;
       return true;
     },
-    [customTabs, tabNameDraft]
+    [customTabs, tabDraftFolderId, tabNameDraft]
   );
 
   const handleTabNameDraftChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
@@ -741,6 +1077,7 @@ const App = (): JSX.Element => {
         event.preventDefault();
         setTabNameDraft(null);
         setTabNameDraftError(null);
+        setTabDraftFolderId(null);
       }
     },
     [commitCustomTabDraft]
@@ -828,6 +1165,7 @@ const App = (): JSX.Element => {
       graphicsExpression,
       viewExpression,
       customTabs,
+      customFolders,
       activeExpressionTab
     };
     try {
@@ -835,7 +1173,15 @@ const App = (): JSX.Element => {
     } catch {
       // Swallow storage errors to avoid breaking the editor experience.
     }
-  }, [activeExpressionTab, customTabs, graphicsExpression, leftWidth, selectedExampleId, viewExpression]);
+  }, [
+    activeExpressionTab,
+    customFolders,
+    customTabs,
+    graphicsExpression,
+    leftWidth,
+    selectedExampleId,
+    viewExpression
+  ]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -882,6 +1228,27 @@ const App = (): JSX.Element => {
   const customTabEvaluations = evaluationState.customEvaluations;
   const viewEvaluation = evaluationState.viewEvaluation;
   const graphicsEvaluation = evaluationState.graphicsEvaluation;
+
+  const tabsByFolder = useMemo(() => {
+    const map = new Map<string, CustomTabState[]>();
+    for (const tab of customTabs) {
+      if (!tab.folderId) {
+        continue;
+      }
+      const list = map.get(tab.folderId);
+      if (list) {
+        list.push(tab);
+      } else {
+        map.set(tab.folderId, [tab]);
+      }
+    }
+    return map;
+  }, [customTabs]);
+
+  const rootCustomTabs = useMemo(
+    () => customTabs.filter((tab) => tab.folderId === null),
+    [customTabs]
+  );
 
   const viewInterpretation = useMemo(() => interpretView(viewEvaluation.value), [viewEvaluation.value]);
 
@@ -1005,6 +1372,7 @@ const App = (): JSX.Element => {
     setViewExpression(defaultViewExpression);
     setGraphicsExpression(`{\n  return []; // See reference for supported primitives.\n}`);
     setCustomTabs([]);
+    setCustomFolders([]);
     setActiveExpressionTab(MAIN_TAB_ID);
     drawImmediate();
   }, [drawImmediate, stopAnimation]);
@@ -1024,7 +1392,9 @@ const App = (): JSX.Element => {
     setViewExpression(example.view);
     setGraphicsExpression(example.graphics);
     setCustomTabs(createCustomTabsFromDefinitions(example.customTabs));
+    setCustomFolders([]);
     setTabNameDraft(null);
+    setTabDraftFolderId(null);
     setActiveExpressionTab(MAIN_TAB_ID);
   }, [selectedExampleId, stopAnimation]);
 
@@ -1119,6 +1489,105 @@ const App = (): JSX.Element => {
     preparedGraphics.layers.length > 0 &&
     viewInterpretation.extent !== null;
 
+  const renderCustomTabButton = (tab: CustomTabState, nested = false) => {
+    const customActive = activeExpressionTab === tab.id;
+    const evaluation = customTabEvaluations.get(tab.id);
+    const hasError = Boolean(evaluation?.error);
+    const isRenaming = renameTarget?.type === 'tab' && renameTarget.id === tab.id;
+    const rowClassName = ['expression-tab-row', nested ? 'expression-tab-row-nested' : '']
+      .filter(Boolean)
+      .join(' ');
+    const baseButtonClass = [
+      'expression-tab',
+      nested ? 'expression-tab-nested' : '',
+      customActive ? 'expression-tab-active' : '',
+      hasError ? 'expression-tab-error-state' : ''
+    ]
+      .filter(Boolean)
+      .join(' ');
+    return (
+      <div key={tab.id} className={rowClassName} role="presentation">
+        <div className="expression-tab-main">
+          {isRenaming ? (
+            <div className="expression-rename-row">
+              <input
+                ref={renameInputRef}
+                className="expression-tab-input expression-rename-input"
+                value={renameDraft}
+                onChange={handleRenameDraftChange}
+                onKeyDown={handleRenameDraftKeyDown}
+                onBlur={handleRenameDraftBlur}
+                aria-label="Rename expression"
+              />
+              <div className="expression-tab-icons">
+                <button
+                  type="button"
+                  className="expression-icon-button"
+                  onClick={() => {
+                    const committed = commitRename(renameDraft);
+                    if (!committed && renameInputRef.current) {
+                      renameInputRef.current.focus();
+                      renameInputRef.current.select();
+                    }
+                  }}
+                  aria-label="Save name"
+                >
+                  <ConfirmIcon />
+                </button>
+                <button
+                  type="button"
+                  className="expression-icon-button"
+                  onClick={cancelRename}
+                  aria-label="Cancel rename"
+                >
+                  <CancelIcon />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                role="tab"
+                id={getExpressionTabButtonId(tab.id)}
+                aria-controls={getExpressionTabPanelId(tab.id)}
+                aria-selected={customActive}
+                tabIndex={customActive ? 0 : -1}
+                className={baseButtonClass}
+                onClick={() => handleExpressionTabSelect(tab.id)}
+              >
+                {tab.name}
+              </button>
+              <div className="expression-tab-icons">
+                <button
+                  type="button"
+                  className="expression-icon-button"
+                  onClick={() => handleRenameTabStart(tab)}
+                  aria-label={`Rename ${tab.name}`}
+                >
+                  <RenameIcon />
+                </button>
+                <button
+                  type="button"
+                  className="expression-icon-button"
+                  onClick={() => handleRemoveTab(tab.id)}
+                  aria-label={`Remove ${tab.name}`}
+                >
+                  <DeleteIcon />
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+        {isRenaming && renameError ? (
+          <p className="expression-tab-error expression-rename-error" role="alert">
+            {renameError}
+          </p>
+        ) : null}
+      </div>
+    );
+  };
+
   const isMainTabActive = activeExpressionTab === MAIN_TAB_ID;
   const isViewTabActive = activeExpressionTab === VIEW_TAB_ID;
 
@@ -1205,53 +1674,135 @@ const App = (): JSX.Element => {
                   >
                     View
                   </button>
-                  {customTabs.map((tab) => {
-                    const customActive = activeExpressionTab === tab.id;
-                    const evaluation = customTabEvaluations.get(tab.id);
-                    const hasError = Boolean(evaluation?.error);
-                    const className = [
-                      'expression-tab',
-                      customActive ? 'expression-tab-active' : '',
-                      hasError ? 'expression-tab-error-state' : ''
-                    ]
-                      .filter(Boolean)
-                      .join(' ');
-                    return (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        role="tab"
-                        id={getExpressionTabButtonId(tab.id)}
-                        aria-controls={getExpressionTabPanelId(tab.id)}
-                        aria-selected={customActive}
-                        tabIndex={customActive ? 0 : -1}
-                        className={className}
-                        onClick={() => handleExpressionTabSelect(tab.id)}
-                      >
-                        {tab.name}
-                      </button>
-                    );
-                  })}
-                  {tabNameDraft !== null ? (
-                    <input
-                      ref={newTabInputRef}
-                      className="expression-tab-input"
-                      value={tabNameDraft}
-                      onChange={handleTabNameDraftChange}
-                      onKeyDown={handleTabNameDraftKeyDown}
-                      onBlur={handleTabNameDraftBlur}
-                      aria-label="New tab name"
-                    />
-                  ) : (
+                  {rootCustomTabs.map((tab) => renderCustomTabButton(tab))}
+                  <div className="expression-add-controls" role="presentation">
+                    <div className="expression-add-expression">
+                      {tabNameDraft !== null && tabDraftFolderId === null ? (
+                        <input
+                          ref={newTabInputRef}
+                          className="expression-tab-input"
+                          value={tabNameDraft}
+                          onChange={handleTabNameDraftChange}
+                          onKeyDown={handleTabNameDraftKeyDown}
+                          onBlur={handleTabNameDraftBlur}
+                          aria-label="New tab name"
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          className="expression-tab expression-tab-add"
+                          onClick={() => handleAddTabClick(null)}
+                          aria-label="Add expression tab"
+                        >
+                          +
+                        </button>
+                      )}
+                    </div>
                     <button
                       type="button"
-                      className="expression-tab expression-tab-add"
-                      onClick={handleAddTabClick}
-                      aria-label="Add expression tab"
+                      className="expression-tab expression-tab-add expression-folder-button"
+                      onClick={handleAddFolderClick}
+                      aria-label="Add folder"
                     >
-                      +
+                      Add folder
                     </button>
-                  )}
+                  </div>
+                  {customFolders.map((folder) => {
+                    const folderTabs = tabsByFolder.get(folder.id) ?? [];
+                    const folderRenaming = renameTarget?.type === 'folder' && renameTarget.id === folder.id;
+                    return (
+                      <div key={folder.id} className="expression-folder" role="presentation">
+                        {folderRenaming ? (
+                          <div className="expression-folder-header expression-folder-header-edit">
+                            <div className="expression-rename-row">
+                              <input
+                                ref={renameInputRef}
+                                className="expression-tab-input expression-rename-input"
+                                value={renameDraft}
+                                onChange={handleRenameDraftChange}
+                                onKeyDown={handleRenameDraftKeyDown}
+                                onBlur={handleRenameDraftBlur}
+                                aria-label="Rename folder"
+                              />
+                              <div className="expression-tab-icons">
+                                <button
+                                  type="button"
+                                  className="expression-icon-button"
+                                  onClick={() => {
+                                    const committed = commitRename(renameDraft);
+                                    if (!committed && renameInputRef.current) {
+                                      renameInputRef.current.focus();
+                                      renameInputRef.current.select();
+                                    }
+                                  }}
+                                  aria-label="Save folder name"
+                                >
+                                  <ConfirmIcon />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="expression-icon-button"
+                                  onClick={cancelRename}
+                                  aria-label="Cancel rename"
+                                >
+                                  <CancelIcon />
+                                </button>
+                              </div>
+                            </div>
+                            {renameError ? (
+                              <p className="expression-tab-error expression-rename-error" role="alert">
+                                {renameError}
+                              </p>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <div className="expression-folder-header">
+                            <span className="expression-folder-name">{folder.name}</span>
+                            <div className="expression-folder-actions">
+                              <button
+                                type="button"
+                                className="expression-icon-button"
+                                onClick={() => handleAddTabClick(folder.id)}
+                                aria-label={`Add expression inside ${folder.name}`}
+                              >
+                                +
+                              </button>
+                              <button
+                                type="button"
+                                className="expression-icon-button"
+                                onClick={() => handleRenameFolderStart(folder)}
+                                aria-label={`Rename folder ${folder.name}`}
+                              >
+                                <RenameIcon />
+                              </button>
+                              <button
+                                type="button"
+                                className="expression-icon-button"
+                                onClick={() => handleRemoveFolder(folder.id)}
+                                aria-label={`Remove folder ${folder.name}`}
+                              >
+                                <DeleteIcon />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        <div className="expression-folder-tabs">
+                          {folderTabs.map((tab) => renderCustomTabButton(tab, true))}
+                          {tabNameDraft !== null && tabDraftFolderId === folder.id ? (
+                            <input
+                              ref={newTabInputRef}
+                              className="expression-tab-input expression-folder-input"
+                              value={tabNameDraft}
+                              onChange={handleTabNameDraftChange}
+                              onKeyDown={handleTabNameDraftKeyDown}
+                              onBlur={handleTabNameDraftBlur}
+                              aria-label={`New tab name for ${folder.name}`}
+                            />
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
                 {tabNameDraftError ? (
                   <p className="expression-tab-error" role="alert">
