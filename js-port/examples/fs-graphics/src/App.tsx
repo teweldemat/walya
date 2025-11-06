@@ -24,7 +24,7 @@ import {
 import type { PreparedGraphics, PreparedPrimitive, ViewExtent } from './graphics';
 import './App.css';
 import { FuncScriptEditor } from '@tewelde/funcscript-editor';
-import examples from './examples';
+import examples, { type CustomTabDefinition } from './examples';
 
 const MIN_LEFT_WIDTH = 260;
 const MIN_RIGHT_WIDTH = 320;
@@ -147,6 +147,17 @@ const buildDefaultTabName = (existingNames: Set<string>) => {
     candidate = `model${index}`;
   }
   return candidate;
+};
+
+const createCustomTabsFromDefinitions = (definitions?: CustomTabDefinition[]): CustomTabState[] => {
+  if (!definitions || definitions.length === 0) {
+    return [];
+  }
+  return definitions.map((definition) => ({
+    id: createCustomTabId(),
+    name: definition.name,
+    expression: definition.expression
+  }));
 };
 
 const getExpressionTabButtonId = (tabId: string) => {
@@ -434,6 +445,9 @@ const App = (): JSX.Element => {
     if (persisted?.customTabs && Array.isArray(persisted.customTabs)) {
       return persisted.customTabs;
     }
+    if (initialExample?.customTabs && initialExample.customTabs.length > 0) {
+      return createCustomTabsFromDefinitions(initialExample.customTabs);
+    }
     return [];
   });
   const [activeExpressionTab, setActiveExpressionTab] = useState<string>(() => {
@@ -451,7 +465,6 @@ const App = (): JSX.Element => {
     }
     return GRAPHICS_TAB_ID;
   });
-  const [draftCustomTabs, setDraftCustomTabs] = useState<CustomTabState[] | null>(null);
   const [tabNameDraft, setTabNameDraft] = useState<string | null>(null);
   const [tabNameDraftError, setTabNameDraftError] = useState<string | null>(null);
   const newTabInputRef = useRef<HTMLInputElement | null>(null);
@@ -646,24 +659,9 @@ const App = (): JSX.Element => {
   }, []);
 
   const handleCustomTabExpressionChange = useCallback((tabId: string, next: string) => {
-    setDraftCustomTabs((current) => {
-      const target = current ?? customTabs;
-      return target.map((tab) => (tab.id === tabId ? { ...tab, expression: next } : tab));
-    });
-  }, [customTabs]);
-
-  const handleCustomTabExpressionBlur = useCallback(
-    (event: FocusEvent<HTMLDivElement>) => {
-      const { currentTarget, relatedTarget } = event;
-      if (relatedTarget instanceof Node && currentTarget.contains(relatedTarget)) {
-        return;
-      }
-      if (draftCustomTabs) {
-        setCustomTabs(draftCustomTabs);
-      }
-    },
-    [draftCustomTabs]
-  );
+    setCustomTabs((current) => current.map((tab) => (tab.id === tabId ? { ...tab, expression: next } : tab)));
+    setSelectedExampleId((current) => (current === 'custom' ? current : 'custom'));
+  }, []);
 
   const handleAddTabClick = useCallback(() => {
     if (tabNameDraft !== null) {
@@ -788,10 +786,6 @@ const App = (): JSX.Element => {
       setLeftWidth(maxLeft);
     }
   }, []);
-
-  useEffect(() => {
-    setDraftCustomTabs(null);
-  }, [customTabs]);
 
   useEffect(() => {
     if ((!referenceOpen && !exampleOpen) || typeof window === 'undefined') {
@@ -1012,8 +1006,7 @@ const App = (): JSX.Element => {
     setTime(0);
     setViewExpression(example.view);
     setGraphicsExpression(example.graphics);
-    setCustomTabs([]);
-    setDraftCustomTabs(null);
+    setCustomTabs(createCustomTabsFromDefinitions(example.customTabs));
     setTabNameDraft(null);
     setActiveExpressionTab(GRAPHICS_TAB_ID);
   }, [selectedExampleId, stopAnimation]);
@@ -1286,8 +1279,6 @@ const App = (): JSX.Element => {
                   const panelId = getExpressionTabPanelId(tab.id);
                   const buttonId = getExpressionTabButtonId(tab.id);
                   const evaluation = customTabEvaluations.get(tab.id);
-                  const draftTab =
-                    draftCustomTabs?.find((draft) => draft.id === tab.id) ?? tab;
                   return (
                     <div
                       key={tab.id}
@@ -1304,10 +1295,9 @@ const App = (): JSX.Element => {
                         className="editor-container editor-container-fill"
                         data-editor-id={tab.id}
                         id={`custom-expression-editor-${tab.id}`}
-                        onBlur={handleCustomTabExpressionBlur}
                       >
                         <FuncScriptEditor
-                          value={draftTab.expression}
+                          value={tab.expression}
                           onChange={(value: string) => handleCustomTabExpressionChange(tab.id, value)}
                           minHeight={0}
                           style={{ flex: 1 }}

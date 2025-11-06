@@ -45,9 +45,7 @@ const {
   MinFunction,
   MaxFunction,
   ClampFunction,
-  RandomFunction,
-  PiFunction,
-  EFunction
+  RandomFunction
 } = require('./math/advanced-functions');
 
 const { MapListFunction } = require('./list/map-list-function');
@@ -135,8 +133,8 @@ module.exports = function buildBuiltinMap() {
     { fn: new MaxFunction(), names: ['max'], collections: { math: [] } },
     { fn: new ClampFunction(), names: ['clamp'], collections: { math: [] } },
     { fn: new RandomFunction(), names: ['random'], collections: { math: [] } },
-    { fn: new PiFunction(), names: ['pi'], collections: { math: [] } },
-    { fn: new EFunction(), names: ['e'], collections: { math: [] } },
+    { value: Math.PI, names: ['pi'], collections: { math: [] } },
+    { value: Math.E, names: ['e'], collections: { math: [] } },
     { fn: new MapListFunction(), names: ['map'] },
     { fn: new ReduceListFunction(), names: ['reduce'] },
     { fn: new FilterListFunction(), names: ['filter'] },
@@ -177,7 +175,8 @@ module.exports = function buildBuiltinMap() {
   const collections = {};
 
   for (const entry of entries) {
-    const typedValue = ensureTyped(entry.fn);
+    const source = Object.prototype.hasOwnProperty.call(entry, 'value') ? entry.value : entry.fn;
+    const typedValue = ensureTyped(source);
     const symbolNames = new Set();
     if (Array.isArray(entry.names)) {
       for (const name of entry.names) {

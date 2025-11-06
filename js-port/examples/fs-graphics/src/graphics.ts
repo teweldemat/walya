@@ -302,12 +302,16 @@ export const interpretView = (value: unknown): ViewInterpretation => {
   };
 };
 
+const describeError = (err: unknown): string => (err instanceof Error ? err.message : String(err));
+
 const collectPrimitives = (
   node: unknown,
   path: string,
   warnings: string[],
   unknownTypes: Set<string>
 ): Primitive[] => {
+  const location = path || 'root';
+
   if (Array.isArray(node)) {
     const primitives: Primitive[] = [];
     node.forEach((child, index) => {
@@ -317,14 +321,25 @@ const collectPrimitives = (
   }
 
   if (node && typeof node === 'object') {
-    const { type, data, transform } = node as { type?: unknown; data?: unknown; transform?: unknown };
+    const candidate = node as { type?: unknown; data?: unknown; transform?: unknown };
+    let type: unknown;
+    let data: unknown;
+    let transform: unknown;
+
+    try {
+      ({ type, data, transform } = candidate);
+    } catch (err) {
+      warnings.push(`Skipping graphics entry at ${location} because it threw while reading: ${describeError(err)}.`);
+      return [];
+    }
+
     if (typeof type === 'string' && data && typeof data === 'object' && !Array.isArray(data)) {
       if (!['line', 'rect', 'circle', 'polygon', 'text'].includes(type)) {
         unknownTypes.add(type);
       }
       if (transform !== undefined && transform !== null) {
         warnings.push(
-          `Primitive at ${path || 'root'} includes a transform, but transforms are no longer supported and will be ignored.`
+          `Primitive at ${location} includes a transform, but transforms are no longer supported and will be ignored.`
         );
       }
       return [
@@ -334,11 +349,12 @@ const collectPrimitives = (
         }
       ];
     }
-    warnings.push(`Primitive at ${path || 'root'} must include string 'type' and object 'data'.`);
+
+    warnings.push(`Primitive at ${location} must include string 'type' and object 'data'.`);
     return [];
   }
 
-  warnings.push(`Skipping graphics entry at ${path || 'root'} because it is not a list or object.`);
+  warnings.push(`Skipping graphics entry at ${location} because it is not a list or object.`);
   return [];
 };
 
@@ -396,115 +412,119 @@ export const prepareGraphics = (
 
     for (let primitiveIndex = 0; primitiveIndex < layer.length; primitiveIndex += 1) {
       const primitive = layer[primitiveIndex];
-      const ctx = `primitive ${primitiveIndex + 1}`;
+      const ctx = `layer ${layerIndex + 1}, primitive ${primitiveIndex + 1}`;
 
-      switch (primitive.type) {
-        case 'line': {
-          const from = ensurePoint(primitive.data.from);
-          const to = ensurePoint(primitive.data.to);
-          if (!from || !to) {
-            warnings.push(`Line in ${ctx} requires numeric from/to points.`);
+      try {
+        switch (primitive.type) {
+          case 'line': {
+            const from = ensurePoint(primitive.data.from);
+            const to = ensurePoint(primitive.data.to);
+            if (!from || !to) {
+              warnings.push(`Line in ${ctx} requires numeric from/to points.`);
+              break;
+            }
+            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : '#38bdf8';
+            const width = ensureNumber(primitive.data.width) ?? 0.25;
+            const dash = Array.isArray(primitive.data.dash)
+              ? primitive.data.dash.every((segment) => typeof segment === 'number' && segment >= 0)
+                ? (primitive.data.dash as number[])
+                : null
+              : null;
+            prepared.push({
+              type: 'line',
+              from,
+              to,
+              stroke,
+              width,
+              dash
+            });
             break;
           }
-          const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : '#38bdf8';
-          const width = ensureNumber(primitive.data.width) ?? 0.25;
-          const dash = Array.isArray(primitive.data.dash)
-            ? primitive.data.dash.every((segment) => typeof segment === 'number' && segment >= 0)
-              ? (primitive.data.dash as number[])
-              : null
-            : null;
-          prepared.push({
-            type: 'line',
-            from,
-            to,
-            stroke,
-            width,
-            dash
-          });
-          break;
-        }
-        case 'rect': {
-          const position = ensurePoint(primitive.data.position);
-          const size = ensurePoint(primitive.data.size);
-          if (!position || !size) {
-            warnings.push(`Rectangle in ${ctx} requires position and size points.`);
+          case 'rect': {
+            const position = ensurePoint(primitive.data.position);
+            const size = ensurePoint(primitive.data.size);
+            if (!position || !size) {
+              warnings.push(`Rectangle in ${ctx} requires position and size points.`);
+              break;
+            }
+            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : null;
+            const fill = typeof primitive.data.fill === 'string' ? primitive.data.fill : null;
+            const width = ensureNumber(primitive.data.width) ?? 0.25;
+            prepared.push({
+              type: 'rect',
+              position,
+              size,
+              stroke,
+              fill,
+              width
+            });
             break;
           }
-          const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : null;
-          const fill = typeof primitive.data.fill === 'string' ? primitive.data.fill : null;
-          const width = ensureNumber(primitive.data.width) ?? 0.25;
-          prepared.push({
-            type: 'rect',
-            position,
-            size,
-            stroke,
-            fill,
-            width
-          });
-          break;
-        }
-        case 'circle': {
-          const center = ensurePoint(primitive.data.center);
-          const radius = ensureNumber(primitive.data.radius);
-          if (!center || radius === null || radius <= 0) {
-            warnings.push(`Circle in ${ctx} requires center and positive radius.`);
+          case 'circle': {
+            const center = ensurePoint(primitive.data.center);
+            const radius = ensureNumber(primitive.data.radius);
+            if (!center || radius === null || radius <= 0) {
+              warnings.push(`Circle in ${ctx} requires center and positive radius.`);
+              break;
+            }
+            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : null;
+            const fill = typeof primitive.data.fill === 'string' ? primitive.data.fill : null;
+            const width = ensureNumber(primitive.data.width) ?? 0.25;
+            prepared.push({
+              type: 'circle',
+              center,
+              radius,
+              stroke,
+              fill,
+              width
+            });
             break;
           }
-          const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : null;
-          const fill = typeof primitive.data.fill === 'string' ? primitive.data.fill : null;
-          const width = ensureNumber(primitive.data.width) ?? 0.25;
-          prepared.push({
-            type: 'circle',
-            center,
-            radius,
-            stroke,
-            fill,
-            width
-          });
-          break;
-        }
-        case 'polygon': {
-          const points = ensurePoints(primitive.data.points);
-          if (!points) {
-            warnings.push(`Polygon in ${ctx} requires an array of at least 3 numeric points.`);
+          case 'polygon': {
+            const points = ensurePoints(primitive.data.points);
+            if (!points) {
+              warnings.push(`Polygon in ${ctx} requires an array of at least 3 numeric points.`);
+              break;
+            }
+            const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : null;
+            const fill = typeof primitive.data.fill === 'string' ? primitive.data.fill : null;
+            const width = ensureNumber(primitive.data.width) ?? 0.25;
+            prepared.push({
+              type: 'polygon',
+              points,
+              stroke,
+              fill,
+              width
+            });
             break;
           }
-          const stroke = typeof primitive.data.stroke === 'string' ? primitive.data.stroke : null;
-          const fill = typeof primitive.data.fill === 'string' ? primitive.data.fill : null;
-          const width = ensureNumber(primitive.data.width) ?? 0.25;
-          prepared.push({
-            type: 'polygon',
-            points,
-            stroke,
-            fill,
-            width
-          });
-          break;
-        }
-        case 'text': {
-          const position = ensurePoint(primitive.data.position);
-          const text = typeof primitive.data.text === 'string' ? primitive.data.text : null;
-          if (!position || text === null) {
-            warnings.push(`Text in ${ctx} requires position and text.`);
+          case 'text': {
+            const position = ensurePoint(primitive.data.position);
+            const text = typeof primitive.data.text === 'string' ? primitive.data.text : null;
+            if (!position || text === null) {
+              warnings.push(`Text in ${ctx} requires position and text.`);
+              break;
+            }
+            const color = typeof primitive.data.color === 'string' ? primitive.data.color : '#e2e8f0';
+            const fontSize = ensureNumber(primitive.data.fontSize) ?? 1;
+            const alignValue = primitive.data.align;
+            const align: CanvasTextAlign = alignValue === 'right' || alignValue === 'center' ? alignValue : 'left';
+            prepared.push({
+              type: 'text',
+              position,
+              text,
+              color,
+              fontSize,
+              align
+            });
             break;
           }
-          const color = typeof primitive.data.color === 'string' ? primitive.data.color : '#e2e8f0';
-          const fontSize = ensureNumber(primitive.data.fontSize) ?? 1;
-          const alignValue = primitive.data.align;
-          const align: CanvasTextAlign = alignValue === 'right' || alignValue === 'center' ? alignValue : 'left';
-          prepared.push({
-            type: 'text',
-            position,
-            text,
-            color,
-            fontSize,
-            align
-          });
-          break;
+          default:
+            warnings.push(`No renderer for primitive type "${primitive.type}" (${ctx}).`);
+            break;
         }
-        default:
-          warnings.push(`No renderer for primitive type "${primitive.type}" (${ctx}).`);
-          break;
+      } catch (err) {
+        warnings.push(`Skipping ${ctx} because it threw during preparation: ${describeError(err)}.`);
       }
     }
 

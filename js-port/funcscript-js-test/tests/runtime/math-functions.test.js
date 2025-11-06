@@ -32,7 +32,7 @@ describe('MathFunctions', () => {
       { expression: 'math.tan(0)', expected: 0, type: FSDataType.Float },
       { expression: 'math.sqrt(9)', expected: 3, type: FSDataType.Float },
       { expression: 'math.exp(0)', expected: 1, type: FSDataType.Float },
-      { expression: 'math.log(math.e())', expected: 1, type: FSDataType.Float },
+      { expression: 'math.log(math.e)', expected: 1, type: FSDataType.Float },
       { expression: 'math.log(8,2)', expected: 3, type: FSDataType.Float },
       { expression: 'math.log10(1000)', expected: 3, type: FSDataType.Float },
       { expression: 'math.abs(-5.1)', expected: 5.1, type: FSDataType.Float },
@@ -65,16 +65,16 @@ describe('MathFunctions', () => {
     expect(valueOf(result)).to.equal(5);
   });
 
-  it('provides random value and constants', () => {
+  it('RandomPiAndEValues', () => {
     const randomValue = evaluate('math.random()');
     expect(typeOf(randomValue)).to.equal(FSDataType.Float);
     expect(valueOf(randomValue)).to.be.within(0, 1);
 
-    const piValue = evaluate('math.pi()');
+    const piValue = evaluate('math.pi');
     expect(typeOf(piValue)).to.equal(FSDataType.Float);
     expect(valueOf(piValue)).to.be.closeTo(Math.PI, 1e-10);
 
-    const eValue = evaluate('math.e()');
+    const eValue = evaluate('math.e');
     expect(typeOf(eValue)).to.equal(FSDataType.Float);
     expect(valueOf(eValue)).to.be.closeTo(Math.E, 1e-10);
   });

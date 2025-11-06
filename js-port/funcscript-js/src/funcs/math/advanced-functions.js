@@ -469,44 +469,6 @@ class RandomFunction extends BaseFunction {
   }
 }
 
-class PiFunction extends BaseFunction {
-  constructor() {
-    super();
-    this.symbol = 'pi';
-    this.callType = CallType.Prefix;
-  }
-
-  get maxParameters() {
-    return 0;
-  }
-
-  evaluate(provider, parameters) {
-    if (parameters.count !== 0) {
-      return makeError(FsError.ERROR_PARAMETER_COUNT_MISMATCH, `${this.symbol}: This function does not accept parameters`);
-    }
-    return makeValue(FSDataType.Float, Math.PI);
-  }
-}
-
-class EFunction extends BaseFunction {
-  constructor() {
-    super();
-    this.symbol = 'e';
-    this.callType = CallType.Prefix;
-  }
-
-  get maxParameters() {
-    return 0;
-  }
-
-  evaluate(provider, parameters) {
-    if (parameters.count !== 0) {
-      return makeError(FsError.ERROR_PARAMETER_COUNT_MISMATCH, `${this.symbol}: This function does not accept parameters`);
-    }
-    return makeValue(FSDataType.Float, Math.E);
-  }
-}
-
 module.exports = {
   SquareRootFunction,
   AbsoluteValueFunction,
@@ -522,7 +484,5 @@ module.exports = {
   MinFunction,
   MaxFunction,
   ClampFunction,
-  RandomFunction,
-  PiFunction,
-  EFunction
+  RandomFunction
 };

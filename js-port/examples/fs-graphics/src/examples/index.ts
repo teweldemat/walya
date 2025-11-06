@@ -2,15 +2,22 @@ declare const require: any;
 
 type ExampleModule = string | { default: string };
 
+export type CustomTabDefinition = {
+  name: string;
+  expression: string;
+};
+
 export type ExampleDefinition = {
   id: string;
   name: string;
   view: string;
   graphics: string;
+  customTabs: CustomTabDefinition[];
 };
 
 const viewContext = require.context('./', true, /view\.fx$/);
 const graphicsContext = require.context('./', true, /graphics\.fx$/);
+const customContext = require.context('./', true, /custom\/[^/]+\.fx$/);
 
 const collectKeys = (context: any): Set<string> => {
   const keys: string[] = context.keys();
@@ -52,6 +59,42 @@ const formatName = (id: string): string =>
     .replace(/[-_]+/g, ' ')
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
+const isValidTabName = (name: string) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name);
+
+const collectCustomTabs = (id: string): CustomTabDefinition[] => {
+  if (!customContext) {
+    return [];
+  }
+
+  const prefix = `./${id}/custom/`;
+  const tabs: CustomTabDefinition[] = [];
+  const seen = new Set<string>();
+
+  for (const key of customContext.keys()) {
+    if (!key.startsWith(prefix)) {
+      continue;
+    }
+    const expression = readModule(customContext, key);
+    if (!expression) {
+      continue;
+    }
+    const filename = key.slice(prefix.length);
+    const baseName = filename.replace(/\.fx$/, '');
+    if (!isValidTabName(baseName)) {
+      continue;
+    }
+    const normalized = baseName.toLowerCase();
+    if (seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    tabs.push({ name: baseName, expression });
+  }
+
+  tabs.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  return tabs;
+};
+
 const examples: ExampleDefinition[] = [];
 
 for (const id of allIds) {
@@ -66,7 +109,8 @@ for (const id of allIds) {
     id,
     name: formatName(id),
     view,
-    graphics
+    graphics,
+    customTabs: collectCustomTabs(id)
   });
 }
 

@@ -2,6 +2,8 @@
 
 const { ParseNodeType, ParseNode, SyntaxErrorData } = require('../parse-node');
 const { IdenResult } = require('../context');
+const { makeValue } = require('../../core/value');
+const { FSDataType } = require('../../core/fstypes');
 
 const identifierMetrics = {
   calls: 0,
@@ -517,7 +519,7 @@ function getNumber(context, siblings, index, errors) {
     commitNodeBuffer(siblings, buffer);
     return {
       NextIndex: i,
-      Value: parsed,
+      Value: makeValue(FSDataType.Float, parsed),
       StartIndex: parseNode.Pos,
       Length: parseNode.Length,
       ParseNode: parseNode
