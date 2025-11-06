@@ -1,8 +1,8 @@
 site_name: FuncScript Manual
 site_description: Official manual for the FuncScript language
 site_url: ''
-repo_url: https://github.com/teweldemat/funcscript-1
-repo_name: teweldemat/funcscript-1
+repo_url: https://github.com/teweldemat/funcscript
+repo_name: teweldemat/funcscript
 nav:
   - Language Overview: index.md
   - Examples: examples.md

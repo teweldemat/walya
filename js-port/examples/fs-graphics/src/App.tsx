@@ -412,7 +412,8 @@ const App = (): JSX.Element => {
   const canvasWrapperRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const initialExample = examples.length > 0 ? examples[0] : null;
+  const bicycleExample = examples.find((entry) => entry.id === 'bicyle') ?? null;
+  const initialExample = bicycleExample ?? (examples.length > 0 ? examples[0] : null);
   const persistedStateRef = useRef<PersistedSnapshot | null>(loadPersistedSnapshot());
 
   const [leftWidth, setLeftWidth] = useState(() => {

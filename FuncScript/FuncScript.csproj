@@ -16,8 +16,8 @@
     <Company>FuncScript</Company>
     <Description>Expression-oriented scripting language runtime for .NET applications.</Description>
     <PackageTags>funcscript;expression-language;scripting;runtime</PackageTags>
-    <PackageProjectUrl>https://github.com/teweldemat/funcscript-1</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/teweldemat/funcscript-1</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/teweldemat/funcscript</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/teweldemat/funcscript</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>

@@ -15,8 +15,8 @@
     <Company>FuncScript</Company>
     <Description>SQL Server and NetTopologySuite helpers for the FuncScript runtime.</Description>
     <PackageTags>funcscript;sql;gis;runtime</PackageTags>
-    <PackageProjectUrl>https://github.com/teweldemat/funcscript-1</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/teweldemat/funcscript-1</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/teweldemat/funcscript</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/teweldemat/funcscript</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
