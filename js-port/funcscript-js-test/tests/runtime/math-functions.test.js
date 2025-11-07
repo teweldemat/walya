@@ -19,10 +19,10 @@ describe('MathFunctions', () => {
     expect(mathCollection.isDefined('pi')).to.be.true;
 
     const sinFromCollection = mathCollection.get('sin');
-    const sinGlobal = provider.get('sin');
     expect(typeOf(sinFromCollection)).to.equal(FSDataType.Function);
-    expect(typeOf(sinGlobal)).to.equal(FSDataType.Function);
-    expect(valueOf(sinFromCollection)).to.equal(valueOf(sinGlobal));
+
+    const sinGlobal = provider.get('sin');
+    expect(sinGlobal).to.equal(null);
   });
 
   it('evaluates math namespace functions', () => {
@@ -77,5 +77,22 @@ describe('MathFunctions', () => {
     const eValue = evaluate('math.e');
     expect(typeOf(eValue)).to.equal(FSDataType.Float);
     expect(valueOf(eValue)).to.be.closeTo(Math.E, 1e-10);
+  });
+
+  it('exposes pi and e only through the math namespace', () => {
+    const piGlobal = evaluate('pi');
+    expect(typeOf(piGlobal)).to.equal(FSDataType.Null);
+    expect(valueOf(piGlobal)).to.equal(null);
+
+    const eGlobal = evaluate('e');
+    expect(typeOf(eGlobal)).to.equal(FSDataType.Null);
+    expect(valueOf(eGlobal)).to.equal(null);
+  });
+
+  it('guards math functions from the global namespace', () => {
+    const cases = ['sin(0)', 'cos(0)', 'abs(-1)', 'sqrt(4)', 'random()'];
+    for (const expression of cases) {
+      expect(() => evaluate(expression)).to.throw();
+    }
   });
 });

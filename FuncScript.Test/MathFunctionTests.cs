@@ -119,7 +119,7 @@ namespace FuncScript.Test
         public void PiAndEAvialableOnlyThroughMath()
         {
             var pi = Engine.Evaluate("pi");
-            var e = Engine.Evaluate("");
+            var e = Engine.Evaluate("e");
 
             Assert.That(pi, Is.Null);
             Assert.That(e, Is.Null);

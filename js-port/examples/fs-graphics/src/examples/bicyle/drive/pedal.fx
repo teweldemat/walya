@@ -8,10 +8,10 @@
   jointRadius: 0.4; // small circle at leg rest attachment
 
   // direction and perpendicular
-  dx: sin(angle);
-  dy: cos(angle);
-  px: cos(angle);
-  py: -sin(angle);
+  dx: math.sin(angle);
+  dy: math.cos(angle);
+  px: math.cos(angle);
+  py: -math.sin(angle);
 
   // key points
   baseCenter: [center[0] + dx * baseRadius, center[1] + dy * baseRadius];
