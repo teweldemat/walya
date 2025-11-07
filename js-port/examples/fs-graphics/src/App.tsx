@@ -36,7 +36,7 @@ import {
   type FsDataProvider,
   type TypedValue
 } from '@tewelde/funcscript/browser';
-import examples, { type CustomTabDefinition } from './examples';
+import examples, { type CustomFolderDefinition, type CustomTabDefinition } from './examples';
 import { ExpressionTree } from './ExpressionTree';
 
 const MIN_LEFT_WIDTH = 260;
@@ -458,17 +458,59 @@ class WorkspaceEvaluationManager {
   }
 }
 
-const createCustomTabsFromDefinitions = (definitions?: CustomTabDefinition[]): CustomTabState[] => {
-  if (!definitions || definitions.length === 0) {
-    return [];
+type ExampleWorkspaceDefinition = {
+  tabs: CustomTabDefinition[];
+  folders?: CustomFolderDefinition[];
+};
+
+const createWorkspaceStateFromDefinitions = (
+  definitions?: ExampleWorkspaceDefinition | null
+): { tabs: CustomTabState[]; folders: CustomFolderState[] } => {
+  if (!definitions) {
+    return { tabs: [], folders: [] };
   }
-  return definitions.map((definition, index) => ({
-    id: createCustomTabId(),
-    name: definition.name,
-    expression: definition.expression,
-    folderId: null,
-    createdAt: index
-  }));
+  let tabIndex = 0;
+  let folderIndex = 0;
+  const tabs: CustomTabState[] = [];
+  const folders: CustomFolderState[] = [];
+
+  const addTabs = (items: CustomTabDefinition[] | undefined, folderId: string | null) => {
+    if (!items) {
+      return;
+    }
+    for (const definition of items) {
+      tabs.push({
+        id: createCustomTabId(),
+        name: definition.name,
+        expression: definition.expression,
+        folderId,
+        createdAt: tabIndex
+      });
+      tabIndex += 1;
+    }
+  };
+
+  const addFolder = (definition: CustomFolderDefinition, parentId: string | null) => {
+    const folderId = createCustomFolderId();
+    folders.push({
+      id: folderId,
+      name: definition.name,
+      parentId,
+      createdAt: folderIndex
+    });
+    folderIndex += 1;
+    addTabs(definition.tabs, folderId);
+    for (const child of definition.folders ?? []) {
+      addFolder(child, folderId);
+    }
+  };
+
+  addTabs(definitions.tabs, null);
+  for (const folder of definitions.folders ?? []) {
+    addFolder(folder, null);
+  }
+
+  return { tabs, folders };
 };
 
 const getExpressionTabButtonId = (tabId: string) => {
@@ -811,6 +853,16 @@ const App = (): JSX.Element => {
   const bicycleExample = examples.find((entry) => entry.id === 'bicyle') ?? null;
   const initialExample = bicycleExample ?? (examples.length > 0 ? examples[0] : null);
   const persistedStateRef = useRef<PersistedSnapshot | null>(loadPersistedSnapshot());
+  const defaultExampleWorkspaceRef = useRef<
+    { tabs: CustomTabState[]; folders: CustomFolderState[] } | null
+  >(
+    initialExample
+      ? createWorkspaceStateFromDefinitions({
+          tabs: initialExample.customTabs,
+          folders: initialExample.customFolders
+        })
+      : null
+  );
 
   const [leftWidth, setLeftWidth] = useState(() => {
     const persisted = persistedStateRef.current;
@@ -842,17 +894,14 @@ const App = (): JSX.Element => {
     if (persisted?.customTabs && Array.isArray(persisted.customTabs)) {
       return persisted.customTabs;
     }
-    if (initialExample?.customTabs && initialExample.customTabs.length > 0) {
-      return createCustomTabsFromDefinitions(initialExample.customTabs);
-    }
-    return [];
+    return defaultExampleWorkspaceRef.current?.tabs ?? [];
   });
   const [customFolders, setCustomFolders] = useState<CustomFolderState[]>(() => {
     const persisted = persistedStateRef.current;
     if (persisted?.customFolders && Array.isArray(persisted.customFolders)) {
       return persisted.customFolders;
     }
-    return [];
+    return defaultExampleWorkspaceRef.current?.folders ?? [];
   });
   const [activeExpressionTab, setActiveExpressionTab] = useState<string>(() => {
     const persisted = persistedStateRef.current;
@@ -1947,8 +1996,12 @@ const App = (): JSX.Element => {
     setTime(0);
     setViewExpression(example.view);
     setGraphicsExpression(example.graphics);
-    setCustomTabs(createCustomTabsFromDefinitions(example.customTabs));
-    setCustomFolders([]);
+    const workspace = createWorkspaceStateFromDefinitions({
+      tabs: example.customTabs,
+      folders: example.customFolders
+    });
+    setCustomTabs(workspace.tabs);
+    setCustomFolders(workspace.folders);
     setTabNameDraft(null);
     setTabDraftFolderId(null);
     setActiveExpressionTab(MAIN_TAB_ID);
