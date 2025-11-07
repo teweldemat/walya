@@ -10,6 +10,8 @@ nav:
       - Built-in Symbols: reference/built-in-symbols.md
       - Types: reference/types.md
   - Syntax: syntax.md
+  - Developers:
+      - FuncScript Test Framework: developers/test-framework.md
 theme:
   name: material
   features:
