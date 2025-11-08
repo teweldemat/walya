@@ -9,9 +9,10 @@ const { KeyValueCollection, SimpleKeyValueCollection } = require('./model/key-va
 const { FsError } = require('./model/fs-error');
 const buildBuiltinMap = require('./funcs');
 const { ParseNode, ParseNodeType } = require('./parser/parse-node');
+const createTestRunner = require('./test-runner');
 
-const { MapDataProvider } = dataProviders;
-const { ensureTyped, typeOf, valueOf } = valueModule;
+const { MapDataProvider, KvcProvider } = dataProviders;
+const { ensureTyped, typeOf, valueOf, expectType, typedNull } = valueModule;
 const builtinSymbols = buildBuiltinMap();
 const builtinProvider = new MapDataProvider(builtinSymbols);
 const builtinCollections = {};
@@ -69,6 +70,19 @@ class DefaultFsDataProvider extends MapDataProvider {
     return !!builtinCollections[lower];
   }
 }
+
+const test = createTestRunner({
+  FuncScriptParser,
+  DefaultFsDataProvider,
+  ensureTyped,
+  expectType,
+  typeOf,
+  valueOf,
+  typedNull,
+  KvcProvider,
+  ParameterList,
+  FSDataType
+});
 
 function evaluate(expression, provider = new DefaultFsDataProvider()) {
   const { block } = FuncScriptParser.parse(provider, expression);
@@ -276,6 +290,7 @@ function colorParseTree(node) {
 const Engine = {
   evaluate,
   evaluateTemplate,
+  test,
   colorParseTree,
   DefaultFsDataProvider,
   FsDataProvider: dataProviders.FsDataProvider,
@@ -308,6 +323,7 @@ module.exports = {
   Engine,
   evaluate,
   evaluateTemplate,
+  test,
   colorParseTree,
   DefaultFsDataProvider,
   FsDataProvider: dataProviders.FsDataProvider,

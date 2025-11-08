@@ -1,0 +1,23 @@
+{
+  "name": "@tewelde/fs-cli",
+  "version": "0.1.0",
+  "description": "Command line interface for evaluating and testing FuncScript expressions.",
+  "license": "MIT",
+  "type": "commonjs",
+  "bin": {
+    "fs-cli": "./bin/fs-cli.js"
+  },
+  "files": [
+    "bin",
+    "src"
+  ],
+  "scripts": {
+    "test": "node ./bin/fs-cli.js --self-test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@tewelde/funcscript": "file:../funcscript-js"
+  }
+}

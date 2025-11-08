@@ -9,6 +9,7 @@ import * as keyValueCollectionModuleRaw from './model/key-value-collection.js';
 import * as fsErrorModuleRaw from './model/fs-error.js';
 import * as parseNodeModuleRaw from './parser/parse-node.js';
 import * as buildBrowserBuiltinMapModule from './funcs/index.browser.js';
+import * as testRunnerModuleRaw from './test-runner.js';
 
 const interopDefault = (mod) => (mod && 'default' in mod ? mod.default : mod);
 
@@ -23,6 +24,7 @@ const keyValueCollectionModule = interopDefault(keyValueCollectionModuleRaw);
 const fsErrorModule = interopDefault(fsErrorModuleRaw);
 const parseNodeModule = interopDefault(parseNodeModuleRaw);
 const buildBrowserBuiltinMap = interopDefault(buildBrowserBuiltinMapModule);
+const createTestRunner = interopDefault(testRunnerModuleRaw);
 
 const { FuncScriptParser } = parserModule;
 const { MapDataProvider, FsDataProvider, KvcProvider } = dataProviders;
@@ -103,6 +105,19 @@ class DefaultFsDataProvider extends MapDataProvider {
   }
 }
 
+const test = createTestRunner({
+  FuncScriptParser,
+  DefaultFsDataProvider,
+  ensureTyped,
+  expectType,
+  typeOf,
+  valueOf,
+  typedNull,
+  KvcProvider,
+  ParameterList,
+  FSDataType
+});
+
 function evaluate(expression, provider = new DefaultFsDataProvider()) {
   const { block } = FuncScriptParser.parse(provider, expression);
   if (!block) {
@@ -147,6 +162,7 @@ function colorParseTree(node) {
 
 const Engine = {
   evaluate,
+  test,
   colorParseTree,
   FuncScriptParser,
   DefaultFsDataProvider,
@@ -179,6 +195,7 @@ const Engine = {
 const funcscript = {
   Engine,
   evaluate,
+  test,
   colorParseTree,
   FuncScriptParser,
   DefaultFsDataProvider,
@@ -211,6 +228,7 @@ const funcscript = {
 export {
   Engine,
   evaluate,
+  test,
   colorParseTree,
   FuncScriptParser,
   DefaultFsDataProvider,

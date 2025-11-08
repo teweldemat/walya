@@ -9,6 +9,7 @@ const { KeyValueCollection, SimpleKeyValueCollection } = require('./model/key-va
 const { FsError } = require('./model/fs-error');
 const { ParseNode } = require('./parser/parse-node');
 const buildBrowserBuiltinMap = require('./funcs/index.browser');
+const createTestRunner = require('./test-runner');
 
 const { MapDataProvider, FsDataProvider, KvcProvider } = dataProviders;
 const {
@@ -81,6 +82,19 @@ class DefaultFsDataProvider extends MapDataProvider {
   }
 }
 
+const test = createTestRunner({
+  FuncScriptParser,
+  DefaultFsDataProvider,
+  ensureTyped,
+  expectType,
+  typeOf,
+  valueOf,
+  typedNull,
+  KvcProvider,
+  ParameterList,
+  FSDataType
+});
+
 function evaluate(expression, provider = new DefaultFsDataProvider()) {
   const { block } = FuncScriptParser.parse(provider, expression);
   if (!block) {
@@ -125,6 +139,7 @@ function colorParseTree(node) {
 
 const Engine = {
   evaluate,
+  test,
   colorParseTree,
   FuncScriptParser,
   DefaultFsDataProvider,
@@ -156,6 +171,7 @@ const Engine = {
 
 exports.Engine = Engine;
 exports.evaluate = evaluate;
+exports.test = test;
 exports.colorParseTree = colorParseTree;
 exports.FuncScriptParser = FuncScriptParser;
 exports.DefaultFsDataProvider = DefaultFsDataProvider;

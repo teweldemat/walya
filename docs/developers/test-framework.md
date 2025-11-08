@@ -8,39 +8,62 @@ A FuncScript expression **A** can be tested using another FuncScript expression 
 
 ## Defining Tests
 
-Each test script returns one or more `testSuit` objects (analogous to test suites). A `testSuit` defines:
+Each test script returns one or more `testSuit` objects (analogous to test suites). A `testSuit` typically defines:
 
+- `name`: A description of what the suite validates.
 - `cases`: Mock input values for intercepted symbols.
-- `tests`: Assertion expressions executed on the evaluated result.
+- `test`: A function that runs once per case and performs assertions against the evaluated result. The function returns the assertion result, if multiple assertions are made, the result will be list of assertion results.
+
+The `test` function receives two arguments:
+
+1. `resData` — the result of evaluating expression **A** with the mocked inputs.
+2. `caseData` — the mock values for the current case, which is handy when assertions depend on the provided inputs.
 
 ### Example
-Script to test
-```funcscript
 
-```
+Script under test:
 
 ```funcscript
 {
-  testSuit: {
+  z:b * b - 4 * a * c;
+  return if z<0 then Error('Equation not solvable') 
+    else 
+      { 
+        r1:(-b + math.sqrt(z)) / (2 * a),
+        r2:(-b +- math.sqrt(z)) / (2 * a)
+      };
+}
+```
+
+Test script:
+
+```funcscript
+{
+  shouldBeOk: {
+    name: "Returns a non-error result for solvable quadratic equations";
     cases: [
-      { "x": 10, "y": 20 },
-      { "x": -5, "y": 15 }
+      { "a": 1.0, "b": 2.0, "c": -1.0 },
+      { "a": 1.0, "b": 4.0, "c": 2.0 }
     ],
-    tests: [
-      (resData,caseData) => assert.noerror(res),
-      (resData,caseData) => assert.equal(res.sum, 30),
-      (resData,caseData) => assert.isnotnull(res)
-    ]
+    test: (resData, caseData) => assert.isNotError(resData)
+  },
+  shouldBeError: {
+    name: "Returns an error result for non-solvable quadratic equations";
+    cases: [
+      { "a": 1.0, "b": 1.0, "c": 2 }
+    ],
+    test: (resData, caseData) => assert.isError(resData)
   }
 
-  return [testSuit];
+  return [shouldBeOk, shouldBeError];
 }
 ```
 
 In this example:
 
-- Each entry in `cases` defines a different input scenario.
-- Each function in `tests` performs assertions on the evaluated result of expression **A**.
+- Each entry in `cases` defines a different input scenario for the intercepted symbols `a`, `b`, and `c`.
+- The `test` function runs once per case, receiving both the evaluated result (`resData`) and the case data (`caseData`) so it can assert the correct behavior for each scenario.
+- Naming the suites (`shouldBeOk`, `shouldBeError`) makes the reported output easy to interpret.
 
 ## Assertions
 
@@ -76,8 +99,8 @@ These predicates make it easy to validate both normal and exceptional results fr
 1. The framework intercepts `FsDataProvider.get` calls inside the tested expression **A**.
 2. For each mock case defined in `cases`, the specified symbols are substituted with the provided mock values.
 3. Expression **A** executes with the substituted data.
-4. The resulting value is passed to each assertion function in `tests`.
-5. Assertion outcomes are reported per case and per test.
+4. The resulting value is passed to the `test` function defined by each `testSuit`.
+5. Assertion outcomes are reported per case, letting you see which inputs triggered which results.
 
 ## Return Structure
 

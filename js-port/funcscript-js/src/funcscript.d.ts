@@ -158,6 +158,53 @@ export declare class SimpleKeyValueCollection extends KeyValueCollection {
   constructor(parent: FsDataProvider | null, entries: Array<readonly [string, FuncScriptInput]>);
 }
 
+export interface TestCaseResultError {
+  type: 'evaluation' | 'assertion';
+  message?: string;
+  stack?: string;
+  reason?: string;
+  testIndex?: number;
+  fsError?: {
+    errorType: string;
+    errorMessage: string;
+    errorData: unknown;
+  };
+}
+
+export interface TestCaseResult {
+  index: number;
+  input: unknown;
+  expressionResult?: unknown;
+  assertionResult?: unknown;
+  passed: boolean;
+  error?: TestCaseResultError;
+}
+
+export interface TestSuiteResultSummary {
+  total: number;
+  passed: number;
+  failed: number;
+}
+
+export interface TestSuiteResult {
+  id: string;
+  name: string;
+  summary: TestSuiteResultSummary;
+  cases: TestCaseResult[];
+}
+
+export interface TestRunSummary {
+  suites: number;
+  cases: number;
+  passed: number;
+  failed: number;
+}
+
+export interface TestRunResult {
+  suites: TestSuiteResult[];
+  summary: TestRunSummary;
+}
+
 export declare function evaluate(
   expression: string,
   provider?: FsDataProvider
@@ -185,6 +232,12 @@ export declare function convertToCommonNumericType(
   right: FuncScriptInput
 ): readonly [TypedValue, TypedValue];
 
+export declare function test(
+  expression: string,
+  testExpression: string,
+  provider?: FsDataProvider
+): TestRunResult;
+
 export declare function getTypeName(type: FSDataType): string;
 
 export type BuiltinFunctionMap = Record<string, BaseFunction>;
@@ -197,6 +250,7 @@ export declare function colorParseTree(
 export declare const Engine: {
   evaluate: typeof evaluate;
   evaluateTemplate: typeof evaluateTemplate;
+  test: typeof test;
   colorParseTree: typeof colorParseTree;
   FuncScriptParser: typeof import('./parser/funcscript-parser').FuncScriptParser;
   DefaultFsDataProvider: typeof DefaultFsDataProvider;
