@@ -1,6 +1,10 @@
 (position, size, kind) => {
   base: position ?? [0, 0];
-  scale: size ?? 1;
+  scaleBoost: 1.8;
+  kindScale:
+    if (kind = 'building') then 3
+    else 1;
+  scale: (size ?? 1) * scaleBoost * kindScale;
   isBuilding: kind = 'building';
   isTower: kind = 'tower';
 

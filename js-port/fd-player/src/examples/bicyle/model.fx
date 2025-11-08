@@ -19,7 +19,7 @@
   endZoomTime: 10.0;
   zoomRaw: (t - startZoomTime) / (endZoomTime - startZoomTime);
   zoomProgress: if (zoomRaw < 0) then 0 else if (zoomRaw > 1) then 1 else zoomRaw;
-  zoomFactor: 1 + zoomProgress * 0.6;
+  zoomFactor: 1 + zoomProgress * 9;
   halfViewWidth: baseHalfViewWidth * zoomFactor;
   viewHeight: baseViewHeight * zoomFactor;
   viewWidth: halfViewWidth * 2;
