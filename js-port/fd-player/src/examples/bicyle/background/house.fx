@@ -2,7 +2,8 @@
   base: position ?? [0, 0];
   scaleBoost: 1.8;
   kindScale:
-    if (kind = 'building') then 3
+    if (kind = 'building') then 1.15
+    else if (kind = 'tower') then 1.05
     else 1;
   scale: (size ?? 1) * scaleBoost * kindScale;
   isBuilding: kind = 'building';

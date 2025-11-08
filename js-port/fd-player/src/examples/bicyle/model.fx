@@ -78,7 +78,7 @@
   );
 
   treeBaseY: groundLineY;
-  backgroundElements: background(treeBaseY, groundLineY, viewBounds);
+  backgroundElements: background(treeBaseY, groundLineY, viewBounds, zoomFactor);
 
   graphics: [
     backgroundElements,
