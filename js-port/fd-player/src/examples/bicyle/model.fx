@@ -47,50 +47,28 @@
     maxY: viewMaxY;
   };
 
-  leftWheel: wheel(
+  frameHeight: outerRadius * 1.6;
+  bicycleState: {
     leftWheelCenter,
-    outerRadius,
-    innerRadius,
-    wheelAngle
-  );
-
-  rightWheel: wheel(
     rightWheelCenter,
+    frontGearCenter,
     outerRadius,
     innerRadius,
-    wheelAngle
-  );
-  theDrive: drive(
-    frontGearCenter,
-    leftWheelCenter,
     gearRadius,
     gearTeeth,
     gearRatio,
-    pedalAngle
-  );
-
-  frameHeight: outerRadius * 1.6;
-  theFrame: frame(
-    leftWheelCenter,
-    rightWheelCenter,
-    frontGearCenter,
+    pedalAngle,
+    wheelAngle,
     frameHeight
-  );
+  };
+  bicycleGraphics: bicycle.model(bicycleState);
 
   treeBaseY: groundLineY;
   backgroundElements: background(treeBaseY, groundLineY, viewBounds, zoomFactor);
 
   graphics: [
     backgroundElements,
-    theDrive.pedal1,
-    leftWheel,
-    rightWheel,
-    theDrive.gear2,
-    theDrive.gear1,
-    theDrive.chain1,
-    theDrive.chain2,
-    theFrame,
-    theDrive.pedal2,
+    bicycleGraphics
   ];
 
   return {

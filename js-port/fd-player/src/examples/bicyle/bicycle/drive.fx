@@ -1,7 +1,7 @@
 (frontCenter, rearCenter, frontRadius, frontTeeth, ratio, pedalAngle) => {
   pedalLength:frontRadius*2.5;
-  gear1: gear(frontCenter, frontRadius, frontTeeth,pedalAngle);
-  gear2: gear(rearCenter, frontRadius * ratio, frontTeeth * ratio,pedalAngle/ratio);
+  gear1: lib.gear(frontCenter, frontRadius, frontTeeth,pedalAngle);
+  gear2: lib.gear(rearCenter, frontRadius * ratio, frontTeeth * ratio,pedalAngle/ratio);
   chain1: chain([
     frontCenter[0], frontCenter[1] + frontRadius + 0.8
   ], [

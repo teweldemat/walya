@@ -69,7 +69,7 @@
       treeElements:
         if (visible) then slot.trees map (treeConfig) => {
           treePosition: [worldX + treeConfig.dx, treeBaseY + treeConfig.dy];
-          return tree(treePosition, treeConfig.scale);
+          return lib.tree(treePosition, treeConfig.scale);
         } else [];
 
       return {
@@ -120,7 +120,7 @@
     bounds.minX + viewWidth * 0.15,
     groundLineY + skyHeight * 0.85
   ];
-  sunLayer: sun(sunCenter, infiniteScale);
+  sunLayer: lib.sun(sunCenter, infiniteScale);
 
   cloudCount: 6;
   horizontalPadding: 0.12;
@@ -138,11 +138,11 @@
     heightFactorRaw: baseFactor + sinusOffset;
     heightFactor: if (heightFactorRaw < minCloudHeight) then minCloudHeight else (if (heightFactorRaw > maxCloudHeight) then maxCloudHeight else heightFactorRaw);
     baseY: groundLineY + skyHeight * heightFactor;
-    return cloud(centerX, baseY, infiniteScale);
+    return lib.cloud(centerX, baseY, infiniteScale);
   };
 
   birdOffsets: [0, 0.38, 0.71];
-  birdLayer: birdOffsets map (offset) => bird(offset, bounds, groundLineY);
+  birdLayer: birdOffsets map (offset) => lib.bird(offset, bounds, groundLineY);
 
   roadPadding: 120;
   roadWidth: 1.8;

@@ -9,12 +9,14 @@
   flightStartX: minX - 60;
   flightEndX: maxX + 60;
   flightWidth: flightEndX - flightStartX;
-  flightX: flightStartX + flightWidth * progress;
+  lockBird: safeBounds.lockBird ?? false;
+  travelProgress: if (lockBird) then 0.5 else progress;
+  flightX: flightStartX + flightWidth * travelProgress;
 
   safeGround: groundLineY ?? 0;
   baseAltitude: safeGround + 18;
   arcOffset: math.sin(progress * math.pi);
-  altitude: baseAltitude + arcOffset * 10;
+  altitude: baseAltitude + (if (lockBird) then 0 else arcOffset * 10);
 
   flap: math.sin(progress * math.pi * 6);
   wingspan: 9;
@@ -135,14 +137,21 @@
       };
     };
 
-    return [primary, highlight];
+    return {
+      primary;
+      highlight;
+    };
   };
 
   leftWingAnchor: [flightX - 0.5, altitude + 0.2];
   rightWingAnchor: [flightX + 0.5, altitude - 0.2];
+  leftWing: buildWing(leftWingAnchor, -1);
+  rightWing: buildWing(rightWingAnchor, 1);
   wings: [
-    buildWing(leftWingAnchor, -1),
-    buildWing(rightWingAnchor, 1)
+    leftWing.primary,
+    leftWing.highlight,
+    rightWing.primary,
+    rightWing.highlight
   ];
 
   tailFeathers: {
