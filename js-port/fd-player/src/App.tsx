@@ -394,6 +394,7 @@ const App = (): JSX.Element => {
   });
   const [treeDragging, setTreeDragging] = useState(false);
   const expressionLayoutRef = useRef<HTMLDivElement | null>(null);
+  const [previewMode, setPreviewMode] = useState<'graphics' | 'json'>('graphics');
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => {
     const persisted = persistedStateRef.current;
     if (!persisted?.customFolders || persisted.customFolders.length === 0) {
@@ -1386,6 +1387,8 @@ const App = (): JSX.Element => {
     return preparedGraphics.layers.reduce((sum, layer) => sum + layer.length, 0);
   }, [preparedGraphics.layers]);
 
+  const preparedGraphicsJson = useMemo(() => JSON.stringify(preparedGraphics, null, 2), [preparedGraphics]);
+
   const canvasReady =
     canvasSize.cssWidth > 0 &&
     canvasSize.cssHeight > 0 &&
@@ -1394,6 +1397,7 @@ const App = (): JSX.Element => {
 
   const isMainTabActive = activeExpressionTab === MAIN_TAB_ID;
   const isViewTabActive = activeExpressionTab === VIEW_TAB_ID;
+  const showGraphicsPreview = previewMode === 'graphics';
 
   return (
     <>
@@ -1600,24 +1604,35 @@ const App = (): JSX.Element => {
 
         <section className="panel panel-right">
           <div className="panel-body panel-body-left">
-          <div className="panel-header-controls">
-            <div className="panel-meta">
-              <span>Primitives: {totalPrimitives}</span>
-              <span>
-                Canvas: {Math.round(canvasSize.cssWidth)}px × {Math.round(canvasSize.cssHeight)}px @ {canvasSize.dpr.toFixed(2)}x
-              </span>
-              <span>
-                View span:{' '}
-                {viewInterpretation.extent
-                  ? `${(viewInterpretation.extent.maxX - viewInterpretation.extent.minX).toFixed(2)} × ${(viewInterpretation.extent.maxY - viewInterpretation.extent.minY).toFixed(2)}`
-                  : '—'}
-              </span>
-              <span className="time-display">t = {time.toFixed(2)}s</span>
-            </div>
-            <div className="animation-controls">
-              <div className="animation-buttons">
-                <button
-                  type="button"
+            <div className="panel-header-controls">
+              <div className="panel-header-left">
+                <div className="preview-mode-toggle" role="group" aria-label="Preview mode">
+                  <button
+                    type="button"
+                    className={`preview-mode-button${previewMode === 'graphics' ? ' preview-mode-button-active' : ''}`}
+                    onClick={() => setPreviewMode('graphics')}
+                    aria-pressed={previewMode === 'graphics'}
+                  >
+                    Graphics
+                  </button>
+                  <button
+                    type="button"
+                    className={`preview-mode-button${previewMode === 'json' ? ' preview-mode-button-active' : ''}`}
+                    onClick={() => setPreviewMode('json')}
+                    aria-pressed={previewMode === 'json'}
+                  >
+                    JSON
+                  </button>
+                </div>
+                <div className="panel-meta">
+                  <span>Primitives: {totalPrimitives}</span>
+                  <span className="time-display">t = {time.toFixed(2)}s</span>
+                </div>
+              </div>
+              <div className="animation-controls">
+                <div className="animation-buttons">
+                  <button
+                    type="button"
                     className="control-button"
                     onClick={handlePlay}
                     disabled={isPlaying}
@@ -1646,9 +1661,21 @@ const App = (): JSX.Element => {
               </div>
             </div>
 
-            <div ref={canvasWrapperRef} className="canvas-wrapper">
-              <canvas ref={canvasRef} className="preview-canvas" />
-              {!canvasReady ? (
+            <div
+              ref={canvasWrapperRef}
+              className={`canvas-wrapper${showGraphicsPreview ? '' : ' canvas-wrapper-json'}`}
+            >
+              <canvas
+                ref={canvasRef}
+                className={`preview-canvas${showGraphicsPreview ? '' : ' preview-canvas-hidden'}`}
+                aria-hidden={!showGraphicsPreview}
+              />
+              {showGraphicsPreview ? null : (
+                <pre className="preview-json" aria-label="Prepared graphics JSON" tabIndex={0}>
+                  {preparedGraphicsJson}
+                </pre>
+              )}
+              {!canvasReady && showGraphicsPreview ? (
                 <div className="canvas-notice">
                   <p>Awaiting view extent and primitive output.</p>
                 </div>
