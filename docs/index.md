@@ -47,4 +47,4 @@ back into JSON pipelines, APIs, or templating systems.
 
 ## Hosted Demos
 - [FuncScript Tester](web/funcscript-studio/)
-- [FuncDraw Player](web/fd-player/) — a drawing application that uses FuncScript to define graphical models
+- [FuncDraw](https://funcdraw.com) — a separately maintained drawing application that uses FuncScript to define graphical models

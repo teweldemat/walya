@@ -1,8 +1,8 @@
 {
   "name": "funcscript-vscode",
   "displayName": "FuncScript",
-  "description": "Parser-backed syntax highlighting and folding for FuncScript (.fx) files.",
-  "version": "0.1.5",
+  "description": "Parser-backed syntax highlighting and folding for FuncScript (.fx/.fs) files.",
+  "version": "0.2.0",
   "publisher": "tewelde",
   "license": "MIT",
   "icon": "media/funcscript-icon.png",
@@ -29,7 +29,8 @@
           "funcscript"
         ],
         "extensions": [
-          ".fx"
+          ".fx",
+          ".fs"
         ],
         "configuration": "./language-configuration.json",
         "icon": {

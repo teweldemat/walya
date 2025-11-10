@@ -4,14 +4,17 @@
 
 ## Install
 
-Inside this repository run:
+Install globally from npm (requires Node.js 18+):
 
 ```bash
-cd js-port/fs-cli
-npm install
+npm install -g @tewelde/fs-cli
 ```
 
-This links the CLI to the local `@tewelde/funcscript` package.
+or run ad-hoc without installing:
+
+```bash
+npx @tewelde/fs-cli '1 + 2'
+```
 
 ## Usage
 
@@ -45,4 +48,4 @@ npm test
 
 ## Development
 
-The entry point for the runtime lives in `src/index.js`, and the executable shim resides in `bin/fs-cli.js`. The CLI depends on the sibling `js-port/funcscript-js` package via a local `file:` reference, so make sure its build artifacts are up to date when developing new features.
+The entry point for the runtime lives in `src/index.js`, and the executable shim resides in `bin/fs-cli.js`. When working inside this repository, run `npm install` followed by `npm link ../funcscript-js` (or `npm install ../funcscript-js --no-save`) so the CLI picks up the local runtime sources while you iterate.

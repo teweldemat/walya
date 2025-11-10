@@ -1,5 +1,8 @@
 # Change Log
 
+## 0.2.0
+- Associate `.fs` files with the FuncScript language definition and icon theme.
+
 ## 0.1.2
 - Added MIT license file and updated manifest licensing metadata.
 - Introduced a custom `f(x)` icon theme for `.fx` files and set the extension icon.

@@ -126,9 +126,10 @@ make docs-build
 The published manual currently covers the language overview, practical examples, and a reference hub
 for functions and types. Add new pages inside `docs/`, update the navigation tree in `mkdocs.yml`,
 and the `Documentation` GitHub Actions workflow (`.github/workflows/docs.yml`) will build and deploy
-the site to GitHub Pages whenever `main` receives documentation changes. The deployment also bundles
-the web demos so they are reachable at `web/funcscript-studio/` and `web/fd-player/` beneath the
-published site root.
+the site to GitHub Pages whenever `main` receives documentation changes. The deployment bundles the
+FuncScript Studio web demo so it is reachable at `web/funcscript-studio/` beneath the published site
+root. FuncDraw now lives at https://funcdraw.com as a separately built project, so the docs link to
+it instead of building it locally.
 
 ## Maintainers
 - Tewelde Ma. Tegegne (<teweldemat@gmail.com>)

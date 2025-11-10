@@ -2,6 +2,8 @@
 
 FuncDraw is a lightweight rendering runtime built on top of the FuncScript language. Each drawing is described as a composition of FuncScript expressions that return primitive shapes—circles, lines, polygons, groups, and so on. FuncDraw walks the filesystem, resolves those expressions, and streams the resulting graphics tree to your chosen output format (raw JSON, SVG, PNG).
 
+FuncDraw is published at [funcdraw.com](https://funcdraw.com) and maintained as a separate project that consumes the FuncScript language runtime.
+
 ## FuncScript under the hood
 
 FuncScript is a declarative, functional language optimized for small data transformations. Expressions look like `foo.fx` files that return literal values or calculate new ones through expressions, pipelines, and helper functions.
