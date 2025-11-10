@@ -91,7 +91,7 @@ namespace FuncScript.Core
         static string[][] s_operatorSymols =
         {
             new[] { "^" },
-            new[] { "*", "/", "%" },
+            new[] { "*", "div", "/", "%" },
             new[] { "+", "-" },
             new[] { ">=", "<=", "!=", ">", "<", "in" },
             new[] { "=", "??", "?!", "?." },

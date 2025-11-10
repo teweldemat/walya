@@ -104,9 +104,9 @@ namespace FuncScript.Test
         [TestCase("3+\"12\"", "312")]
         [TestCase("\"12\"+3", "123")]
         [TestCase("1.0/2", 0.5)]
-        [TestCase("5/2", 2)]
+        [TestCase("5/2", 2.5d)]
         [TestCase("1.0+5", 6.0)]
-        [TestCase("5+1/2", 5)]
+        [TestCase("5+1/2", 5.5d)]
         [TestCase("1+2+3", 6)]
         [TestCase("(1+2+3)+5", 11)]
         [TestCase("1+2*3", 7)]
@@ -293,7 +293,6 @@ namespace FuncScript.Test
         [TestCase("-1", -1)] //parse negative number
         [TestCase("2--1", 3)] //parse negative number
         [TestCase("2-1", 1)] //simple subtraction
-        [TestCase("1/2", 0)]
         [TestCase("If(1=0,10,5-1)", 4)]
         [TestCase("((a)=>a*a)(3)", 9)]
 

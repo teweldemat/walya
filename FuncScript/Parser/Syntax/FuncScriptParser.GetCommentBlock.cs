@@ -24,6 +24,5 @@ namespace FuncScript.Core
             return i;
         }
 
-        
     }
 }

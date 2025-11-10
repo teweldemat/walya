@@ -125,12 +125,12 @@ namespace FuncScript.Test
         [TestCase(@"3.0%2.0%2", 1.0)]
 
 
-        [TestCase(@"3/2", 1)] //division (/) functoin
+        [TestCase(@"3/2", 1.5d)] //division (/) functoin
         [TestCase(@"2/2", 1)]
-        [TestCase(@"3/2/2", 0)]
+        [TestCase(@"3/2/2", 0.75d)]
         [TestCase(@"3/2.0", 1.5)]
         [TestCase(@"2/2.0", 1.0)]
-        [TestCase(@"3/2/2.0", 0.5)]
+        [TestCase(@"3/2/2.0", 0.75d)]
         [TestCase(@"3.0/2.0/2", 0.75)]
 
         [TestCase(@"1 in [1,2]", true)] //in function

@@ -312,8 +312,7 @@ namespace FuncScript.Test
                 (ParseNodeType.WhiteSpace, 1),
                 (ParseNodeType.Comment, 6),
                 (ParseNodeType.Operator, 1),
-                (ParseNodeType.LiteralInteger, 1)
-                );
+                (ParseNodeType.LiteralInteger, 1));
 
         }
 

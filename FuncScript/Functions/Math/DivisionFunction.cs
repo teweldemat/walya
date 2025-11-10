@@ -61,7 +61,6 @@ namespace FuncScript.Functions.Math
 
             for (int i = 1; i < count; i++)
             {
-                
                 var p = getPar(i);
                 if (!p.Item1)
                     return null;
@@ -69,52 +68,62 @@ namespace FuncScript.Functions.Math
 
                 if (isInt)
                 {
-                    if (d is int)
+                    if (d is int intDiv)
                     {
-                        intTotal /= (int)d;
+                        DivideInt(intDiv);
+                        continue;
                     }
-                    else if (d is long)
+
+                    if (d is long longDiv)
                     {
-                        isLong = true;
-                        longTotal = intTotal;
+                        PromoteIntToLong();
+                        DivideLong(longDiv);
+                        continue;
                     }
-                    else if (d is double)
+
+                    if (d is double doubleDiv)
                     {
-                        isDouble = true;
-                        doubleTotal = intTotal;
+                        PromoteIntToDouble();
+                        doubleTotal /= doubleDiv;
+                        continue;
                     }
                 }
 
                 if (isLong)
                 {
-                    if (d is int)
+                    if (d is int intDiv)
                     {
-                        longTotal /= (long)(int)d;
+                        DivideLong(intDiv);
+                        continue;
                     }
-                    else if (d is long)
+
+                    if (d is long longDiv)
                     {
-                        longTotal /= (long)d;
+                        DivideLong(longDiv);
+                        continue;
                     }
-                    else if (d is double)
+
+                    if (d is double doubleDiv)
                     {
-                        isDouble = true;
-                        doubleTotal = longTotal;
+                        PromoteLongToDouble();
+                        doubleTotal /= doubleDiv;
+                        continue;
                     }
                 }
 
                 if (isDouble)
                 {
-                    if (d is int)
+                    if (d is int intDiv)
                     {
-                        doubleTotal /= (double)(int)d;
+                        doubleTotal /= intDiv;
                     }
-                    else if (d is long)
+                    else if (d is long longDiv)
                     {
-                        doubleTotal /= (double)(long)d;
+                        doubleTotal /= longDiv;
                     }
-                    else if (d is double)
+                    else if (d is double doubleDiv)
                     {
-                        doubleTotal /= (double)d;
+                        doubleTotal /= doubleDiv;
                     }
                 }
             }
@@ -127,6 +136,67 @@ namespace FuncScript.Functions.Math
                 return intTotal;
 
             return null;
+
+            void PromoteIntToLong()
+            {
+                if (!isInt)
+                    return;
+                isInt = false;
+                isLong = true;
+                longTotal = intTotal;
+            }
+
+            void PromoteIntToDouble()
+            {
+                if (isDouble)
+                {
+                    isInt = false;
+                    return;
+                }
+
+                isInt = false;
+                isDouble = true;
+                doubleTotal = intTotal;
+            }
+
+            void PromoteLongToDouble()
+            {
+                if (isDouble)
+                {
+                    isLong = false;
+                    return;
+                }
+
+                isLong = false;
+                isDouble = true;
+                doubleTotal = longTotal;
+            }
+
+            void DivideInt(int divisor)
+            {
+                if (intTotal % divisor == 0)
+                {
+                    intTotal /= divisor;
+                }
+                else
+                {
+                    PromoteIntToDouble();
+                    doubleTotal /= divisor;
+                }
+            }
+
+            void DivideLong(long divisor)
+            {
+                if (longTotal % divisor == 0)
+                {
+                    longTotal /= divisor;
+                }
+                else
+                {
+                    PromoteLongToDouble();
+                    doubleTotal /= divisor;
+                }
+            }
         }
 
         public string ParName(int index)
