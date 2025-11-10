@@ -20,6 +20,7 @@ const { AddFunction } = require('./math/add-function');
 const { SubtractFunction } = require('./math/subtract-function');
 const { MultiplyFunction } = require('./math/multiply-function');
 const { DivisionFunction } = require('./math/division-function');
+const { DivFunction } = require('./math/div-function');
 const { NegateFunction } = require('./math/negate-function');
 const { ModuloFunction } = require('./math/modulo-function');
 const {
@@ -105,6 +106,7 @@ module.exports = function buildBrowserBuiltinMap() {
     { fn: new SubtractFunction(), names: ['-'] },
     { fn: new MultiplyFunction(), names: ['*'] },
     { fn: new DivisionFunction(), names: ['/'] },
+    { fn: new DivFunction(), names: ['div'] },
     { fn: new NegateFunction(), names: ['negate'] },
     { fn: new ModuloFunction(), names: ['%'] },
     { fn: new SineFunction(), collections: { math: ['sin'] } },

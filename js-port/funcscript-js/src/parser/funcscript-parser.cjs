@@ -44,7 +44,7 @@ const { CallType } = require('../core/function-base');
 // Mirrors FuncScript/Parser/FuncScriptParser.Main.cs :: s_operatorSymols
 const OPERATOR_SYMBOLS = [
   ['^'],
-  ['*', '/', '%'],
+  ['*', 'div', '/', '%'],
   ['+', '-'],
   ['>=', '<=', '!=', '>', '<', 'in'],
   ['=', '??', '?!', '?.'],
