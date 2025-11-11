@@ -31,7 +31,6 @@ type RawChildContainer = {
 
 const COMMENT_TYPE = 'Comment';
 const STRING_TYPES = new Set(['LiteralString', 'StringTemplate']);
-const KEY_SOURCE_NODE_TYPES = new Set(['Identifier', 'LiteralString', 'StringTemplate', 'Key']);
 
 const sortSegments = (segments: ParseSegment[]) =>
   [...segments].sort((a, b) => (a.start === b.start ? a.end - b.end : a.start - b.start));
@@ -296,18 +295,10 @@ export const analyzeText = (text: string): ParseOutcome => {
     const baseSegments = rawSegments
       .map((segment) => toSegment(segment, text.length))
       .filter((segment): segment is ParseSegment => Boolean(segment));
-    const keySegments = collectKeySegments(parseNode, text.length);
-    const keyRangeSet = new Set(keySegments.map((segment) => `${segment.start}:${segment.end}`));
-    const baseWithoutKeys = baseSegments.filter((segment) => {
-      if (!KEY_SOURCE_NODE_TYPES.has(segment.nodeType)) {
-        return true;
-      }
-      return !keyRangeSet.has(`${segment.start}:${segment.end}`);
-    });
 
-    const filteredComments = filterCommentSegments(commentSegments, baseWithoutKeys);
-    const trimmedBase = subtractSegments(baseWithoutKeys, filteredComments);
-    const merged = trimmedBase.concat(filteredComments, keySegments);
+    const filteredComments = filterCommentSegments(commentSegments, baseSegments);
+    const trimmedBase = subtractSegments(baseSegments, filteredComments);
+    const merged = trimmedBase.concat(filteredComments);
     const segments = sortSegments(merged);
 
     return {
@@ -336,54 +327,6 @@ const toNodeRange = (node: ParseNode, docLength: number) => {
     return null;
   }
   return clampRange(raw.Pos, raw.Pos + raw.Length, docLength);
-};
-
-const getKeySegmentRange = (node: ParseNode & RawChildContainer, docLength: number) => {
-  for (const child of getChildNodes(node)) {
-    if (!child) {
-      continue;
-    }
-    if (child.NodeType === 'Colon') {
-      break;
-    }
-    if (!KEY_SOURCE_NODE_TYPES.has(child.NodeType)) {
-      continue;
-    }
-    const range = toNodeRange(child, docLength);
-    if (range) {
-      return range;
-    }
-  }
-  return null;
-};
-
-const collectKeySegments = (root: ParseNode | null, docLength: number): ParseSegment[] => {
-  if (!root || docLength <= 0) {
-    return [];
-  }
-
-  const stack: ParseNode[] = [root];
-  const result: ParseSegment[] = [];
-
-  while (stack.length) {
-    const current = stack.pop();
-    if (!current) {
-      continue;
-    }
-
-    if (current.NodeType === 'KeyValuePair') {
-      const keyRange = getKeySegmentRange(current as ParseNode & RawChildContainer, docLength);
-      if (keyRange) {
-        result.push({ ...keyRange, nodeType: 'Key' });
-      }
-    }
-
-    for (const child of getChildNodes(current as ParseNode & RawChildContainer)) {
-      stack.push(child);
-    }
-  }
-
-  return result;
 };
 
 export type FoldRegion = {

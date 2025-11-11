@@ -61,6 +61,11 @@ const PREFIX_OPERATORS = [
 
 // Mirrors FuncScript/Parser/FuncScriptParser.Main.cs keyword initialization
 const KEYWORDS = new Set(['return', 'eval', 'fault', 'case', 'switch', 'then', 'else']);
+const KEY_NODE_CHILD_TYPES = new Set([
+  ParseNodeType.Identifier,
+  ParseNodeType.LiteralString,
+  ParseNodeType.StringTemplate
+]);
 
 function unwrapRootNode(node) {
   if (!node) {
@@ -727,6 +732,24 @@ function getKvcExpression(context, siblings, nakedMode, index) {
   return new ParseBlockResult(currentIndex, kvc);
 }
 
+function markKeyNodes(childNodes, snapshotIndex, keyStart, keyLength) {
+  if (!Array.isArray(childNodes) || keyLength <= 0) {
+    return;
+  }
+  const keyEnd = keyStart + keyLength;
+  for (let index = snapshotIndex; index < childNodes.length; index += 1) {
+    const node = childNodes[index];
+    if (
+      node &&
+      node.Pos >= keyStart &&
+      node.Pos + node.Length <= keyEnd &&
+      KEY_NODE_CHILD_TYPES.has(node.NodeType)
+    ) {
+      node.NodeType = ParseNodeType.Key;
+    }
+  }
+}
+
 // Mirrors FuncScript/Parser/Syntax/FuncScriptParser.GetKvcItem.cs :: GetKvcItem
 function getKvcItem(context, siblings, nakedKvc, index) {
   if (!context) {
@@ -793,19 +816,29 @@ function getKeyValuePair(context, siblings, index) {
 
   const keyErrors = [];
   let currentIndex = index;
-  const nameResult = getSimpleString(context, childNodes, currentIndex, keyErrors);
   let name = null;
+  let keyStart = 0;
+  let keyLength = 0;
+  let keyCaptureIndex = childNodes.length;
+  const nameResult = getSimpleString(context, childNodes, currentIndex, keyErrors);
   if (nameResult.NextIndex === currentIndex) {
+    keyCaptureIndex = childNodes.length;
     const iden = getIdentifier(context, childNodes, currentIndex, KEYWORDS);
     currentIndex = iden.NextIndex;
     if (currentIndex === index) {
       return new ValueParseResult(index, null);
     }
     name = iden.Iden;
+    keyStart = iden.StartIndex;
+    keyLength = iden.Length;
   } else {
     currentIndex = nameResult.NextIndex;
     name = nameResult.Value;
+    keyStart = nameResult.StartIndex;
+    keyLength = nameResult.Length;
   }
+
+  markKeyNodes(childNodes, keyCaptureIndex, keyStart, keyLength);
 
   const afterColon = getToken(context, currentIndex, childNodes, ParseNodeType.Colon, ':');
   if (afterColon === currentIndex) {

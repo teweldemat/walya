@@ -1,6 +1,6 @@
 {
   "name": "@tewelde/funcscript",
-  "version": "0.2.1",
+  "version": "0.2.4",
   "description": "FuncScript runtime for Node.js and browser environments",
   "license": "MIT",
   "type": "commonjs",
@@ -55,7 +55,7 @@
     "Tewelde Ma. Tegegne <teweldemat@gmail.com>"
   ],
   "scripts": {
-    "test": "vitest"
+    "test": "vitest run"
   },
   "devDependencies": {
     "vitest": "^1.6.0"

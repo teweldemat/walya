@@ -20,19 +20,26 @@ class LengthFunction extends BaseFunction {
       return error;
     }
 
-    const list = helpers.ensureList(parameters.getParameter(provider, 0));
-    if (!list) {
-      return helpers.makeError(
-        helpers.FsError.ERROR_TYPE_MISMATCH,
-        `${this.symbol} function: The parameter should be ${this.parName(0)}`
-      );
+    const typedArg = helpers.ensureTyped(parameters.getParameter(provider, 0));
+    const argType = helpers.typeOf(typedArg);
+
+    if (argType === FSDataType.List) {
+      return helpers.makeValue(FSDataType.Integer, helpers.valueOf(typedArg).length);
     }
 
-    return helpers.makeValue(FSDataType.Integer, list.length);
+    if (argType === FSDataType.String) {
+      const text = helpers.valueOf(typedArg) ?? '';
+      return helpers.makeValue(FSDataType.Integer, text.length);
+    }
+
+    return helpers.makeError(
+      helpers.FsError.ERROR_TYPE_MISMATCH,
+      `${this.symbol} function: The parameter should be ${this.parName(0)}`
+    );
   }
 
   parName(index) {
-    return index === 0 ? 'List' : '';
+    return index === 0 ? 'List or String' : '';
   }
 }
 

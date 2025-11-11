@@ -150,6 +150,15 @@ namespace FuncScript.Test
             Assert.AreEqual("one\nTwo", result);
         }
 
+        [TestCase("length([1,2,3])", 3)]
+        [TestCase("length(\"hello\")", 5)]
+        public void LengthFunctionAcceptsListsAndStrings(string expression, int expected)
+        {
+            var provider = new DefaultFsDataProvider();
+            var result = FuncScriptRuntime.Evaluate(provider, expression);
+            Assert.That(Convert.ToInt32(result), Is.EqualTo(expected));
+        }
+
         [Test]
         [TestCase("null", null)]
         [TestCase("true", true)]

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 
 namespace FuncScript.Functions.List
 {
+    [FunctionAlias("length")]
     public class LengthFunction : IFsFunction
     {
         public int MaxParsCount => 1;

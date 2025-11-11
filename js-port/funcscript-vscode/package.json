@@ -2,7 +2,7 @@
   "name": "funcscript-vscode",
   "displayName": "FuncScript",
   "description": "Parser-backed syntax highlighting and folding for FuncScript (.fx/.fs) files.",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "publisher": "tewelde",
   "license": "MIT",
   "icon": "media/funcscript-icon.png",
@@ -38,9 +38,24 @@
           "dark": "./media/funcscript-icon.svg"
         }
       }
-    ]
+    ],
+    "configurationDefaults": {
+      "[funcscript]": {
+        "editor.semanticHighlighting.enabled": true,
+        "editor.semanticTokenColorCustomizations": {
+          "enabled": true,
+          "rules": {
+            "property": {
+              "foreground": "#C586C0"
+            }
+          }
+        }
+      }
+    }
   },
   "scripts": {
+    "preinstall": "npm run build-runtime",
+    "build-runtime": "node ./scripts/sync-runtime.mjs",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "package": "vsce package",
@@ -55,6 +70,6 @@
     "vsce": "^2.15.0"
   },
   "dependencies": {
-    "@tewelde/funcscript": "file:../funcscript-js"
+    "@tewelde/funcscript": "file:runtime/funcscript-runtime.tgz"
   }
 }

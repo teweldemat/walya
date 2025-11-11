@@ -17,18 +17,26 @@ namespace FuncScript.Core
             var errors = context.ErrorsList;
 
             var keyErrors = new List<SyntaxErrorData>();
-            var stringResult = GetSimpleString(context,childNodes, index, keyErrors);
+            var keyCaptureIndex = childNodes.Count;
+            var stringResult = GetSimpleString(context, childNodes, index, keyErrors);
             var name = stringResult.Value;
             var currentIndex = stringResult.NextIndex;
+            var keyStart = stringResult.StartIndex;
+            var keyLength = stringResult.Length;
             if (currentIndex == index)
             {
+                keyCaptureIndex = childNodes.Count;
                 var iden = GetIdentifier(context, childNodes, index);
                 currentIndex = iden.NextIndex;
                 if (currentIndex == index)
                     return new ValueParseResult<KvcExpression.KeyValueExpression>(index, null);
 
                 name = iden.Iden;
+                keyStart = iden.StartIndex;
+                keyLength = iden.Length;
             }
+
+            MarkKeyNodes(childNodes, keyCaptureIndex, keyStart, keyLength);
 
             var afterColon = GetToken(context, currentIndex,childNodes,ParseNodeType.Colon, ":");
             if (afterColon == currentIndex)
@@ -57,6 +65,31 @@ namespace FuncScript.Core
             buffer.Add(parseNode);
             CommitNodeBuffer(siblings, buffer);
             return new ValueParseResult<KvcExpression.KeyValueExpression>(currentIndex, keyValue);
+        }
+
+        static bool IsKeyChild(ParseNode node)
+        {
+            if (node == null)
+                return false;
+            return node.NodeType == ParseNodeType.Identifier ||
+                   node.NodeType == ParseNodeType.LiteralString ||
+                   node.NodeType == ParseNodeType.StringTemplate;
+        }
+
+        static void MarkKeyNodes(List<ParseNode> childNodes, int snapshotIndex, int keyStart, int keyLength)
+        {
+            if (childNodes == null || keyLength <= 0)
+                return;
+
+            var keyEnd = keyStart + keyLength;
+            for (var i = snapshotIndex; i < childNodes.Count; i++)
+            {
+                var node = childNodes[i];
+                if (node != null && node.Pos >= keyStart && node.Pos + node.Length <= keyEnd && IsKeyChild(node))
+                {
+                    node.NodeType = ParseNodeType.Key;
+                }
+            }
         }
     }
 }
