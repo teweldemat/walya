@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "framework": null,
+  "installCommand": "echo 'Dependencies handled by scripts/vercel-build.sh'",
+  "buildCommand": "bash scripts/vercel-build.sh",
+  "outputDirectory": "public",
+  "cleanUrls": true
+}

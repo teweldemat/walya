@@ -18,10 +18,16 @@ Lists use JSON square-bracket syntax and can embed expressions for elements:
 ```
 
 ## Key value collection expression
-Records are written with braces. Values can be literals or expressions:
+Records are written with braces. Values can be literals or expressions. When the entire expression
+is just a record, the outer braces are optional; the parser treats the top-level bindings as part
+of the same key/value collection either way:
 
 ```funcscript
 { gross: 5200; rate: 0.13; net: gross * (1 - rate) }
+// equivalent to:
+gross: 5200;
+rate: 0.13;
+net: gross * (1 - rate)
 ```
 
 ## Strings & Templates
@@ -29,11 +35,22 @@ Triple-quoted strings keep verbatim newlines and quotes, which is convenient for
 
 ```funcscript
 {
-  prose: """Dear team,
+  prose: """
+Dear team,
 The build succeeded.
-Thanks!"""
+Thanks!
+"""
 }
 ```
+Note that the line break after the opening """ and before the closing """ are ignored. The example
+expression evaluates as `<string>`:
+
+```text
+Dear team,
+The build succeeded.
+Thanks!
+```
+
 
 Standard `'single'` and `"double"` literals remain available, and string templates still use the `f"..."` prefix to embed expressions.
 
@@ -62,7 +79,7 @@ Key/value collections normally evaluate to an object containing every binding. M
 }
 ```
 
-Evaluating the block above produces `4524`, because execution stops at the returned expression and only the bindings required to compute `net` are evaluated.
+Evaluating the block above produces `<number> 4524`, because execution stops at the returned expression and only the bindings required to compute `net` are evaluated.
 
 ## Comments
 Use either `// inline` or `/* multi-line */` comments anywhere whitespace is permitted:

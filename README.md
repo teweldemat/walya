@@ -127,11 +127,31 @@ make docs-build
 
 The published manual currently covers the language overview, practical examples, and a reference hub
 for functions and types. Add new pages inside `docs/`, update the navigation tree in `mkdocs.yml`,
-and the `Documentation` GitHub Actions workflow (`.github/workflows/docs.yml`) will build and deploy
-the site to GitHub Pages whenever `main` receives documentation changes. The deployment bundles the
-FuncScript Studio web demo so it is reachable at `web/funcscript-studio/` beneath the published site
-root. FuncDraw now lives at https://funcdraw.com as a separately built project, so the docs link to
-it instead of building it locally.
+and the `Documentation` GitHub Actions workflow (`.github/workflows/docs.yml`) will keep building the
+site for GitHub Pages whenever `main` receives documentation changes. The Vercel deployment uses the
+same inputs but is now the canonical host for https://funcscript.org.
+
+### Vercel Deployment
+The repository includes `vercel.json` plus `scripts/vercel-build.sh`, which Vercel calls to
+reproduce the GitHub Pages bundle. The script installs MkDocs, builds the React-based FuncScript
+Studio demo with `PUBLIC_PATH=./`, runs `mkdocs build --clean --site-dir public`, and copies the demo
+into `public/web/funcscript-studio/` so the static site can serve everything from the same origin.
+
+To publish updates to https://funcscript.org:
+1. Install the Vercel CLI (`npm i -g vercel`) and authenticate (`vercel login`).
+2. Run `vercel link` from the repo root and select (or create) the FuncScript docs project.
+3. Deploy with `vercel deploy --prod --confirm` (the CLI picks up `vercel.json` and runs the custom
+   build).
+4. Point the apex domain at Vercel by creating an `A` record for `funcscript.org` that targets
+   `76.76.21.21`, and (optionally) a `CNAME` for `www.funcscript.org` that targets
+   `cname.vercel-dns.com`.
+5. Attach the domain inside Vercel (`vercel domains add funcscript.org`) so certificates are issued
+   automatically.
+
+Once linked, subsequent pushes to `main` can be auto-deployed by enabling Vercel's GitHub import, or
+you can continue triggering manual `vercel deploy --prod` runs after reviewing changes locally.
+FuncDraw lives at https://funcdraw.com as a separately built project, so the docs link to it instead
+of building it locally.
 
 ## Maintainers
 - Tewelde Ma. Tegegne (<teweldemat@gmail.com>)

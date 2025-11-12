@@ -285,6 +285,7 @@ FakesAssemblies/
 .ntvs_analysis.dat
 node_modules/
 site/
+public/
 
 # Visual Studio 6 build log
 *.plg
@@ -411,3 +412,4 @@ js-port/funcscript-studio/.npm-cache
 js-port/fd-player/dist
 js-port/funcscript-js/.npm-cache
 js-port/funcscript-vscode/dist
+.vercel

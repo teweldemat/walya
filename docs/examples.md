@@ -10,7 +10,7 @@ fine:
 1 + 2 * 5
 ```
 
-That line yields the integer `11`. This makes it easy to test ideas or compose scripts one
+That line yields `<number> 11`. This makes it easy to test ideas or compose scripts one
 expression at a time.
 
 ## Deriving Values from Inputs
@@ -22,9 +22,13 @@ You can mix raw payload data with calculations inside the same record:
   rate: 0.13;
   net: gross * (1 - rate);
 }
+// or without braces at the top level:
+gross: 5200;
+rate: 0.13;
+net: gross * (1 - rate)
 ```
 
-Evaluating the block yields the JSON object `{ gross: 5200; rate: 0.13; net: 4524 }`.
+Evaluating the block yields the JSON object `<object> { gross: 5200; rate: 0.13; net: 4524 }`.
 
 ## Working with Lists
 Lists stick to JSON syntax but accept higher-order helpers such as `map`. The most common style
@@ -37,7 +41,7 @@ is to treat `map` as an infix operator:
 }
 ```
 
-Result: JSON `{ values: [1, 2, 3, 4]; doubled: [2, 4, 6, 8] }`.
+Result: `<object> { values: [1, 2, 3, 4]; doubled: [2, 4, 6, 8] }`.
 
 You do not need to wrap every expression in a key/value block either. Plain expressions work just
 as well:
@@ -46,7 +50,7 @@ as well:
 [4, 4, 5] map (x) => x * 2
 ```
 
-Evaluating that line directly produces the list `[8, 8, 10]`.
+Evaluating that line directly produces `<list> [8, 8, 10]`.
 
 ## String Concatenation
 Text values use standard string operators, so you can build messages inline:
@@ -55,7 +59,7 @@ Text values use standard string operators, so you can build messages inline:
 'Hello, ' + 'FuncScript!' + ' 👋'
 ```
 
-This expression evaluates to the string `Hello, FuncScript! 👋`.
+This expression evaluates to `<string> Hello, FuncScript! 👋`.
 
 ## Mapping with Inline Lambdas
 Inline lambdas make it easy to transform lists on the fly, even inside a block:
@@ -67,7 +71,7 @@ Inline lambdas make it easy to transform lists on the fly, even inside a block:
 }
 ```
 
-The block outputs the list `[1, 9, 25]` because the inline lambda squares each entry and `eval`
+The block outputs `<list> [1, 9, 25]` because the inline lambda squares each entry and `eval`
 surfaces the mapped list.
 
 ## Guarding Against Missing Data
@@ -103,7 +107,7 @@ Blocks can emit nested objects, making it easy to produce API payloads directly:
 }
 ```
 
-The result will be
+The result will be `<object>`:
 ```json
 {
   "customer": {
@@ -132,7 +136,7 @@ the `eval` keyword:
 }
 ```
 
-That block evaluates to the integer `50` because `eval` designates `x + 5` as the block's result
+That block evaluates to `<number> 50` because `eval` designates `x + 5` as the block's result
 instead of returning the entire record.
 
 `eval` composes naturally with lambdas and nested scopes:
@@ -149,7 +153,7 @@ instead of returning the entire record.
 ```
 
 Here, `f` adds `5` to its input using an inner `eval`, and the outer block uses another `eval` to
-surface the function call. The overall result is the integer `10`.
+surface the function call. The overall result is `<number> 10`.
 
 `eval` also plays nicely with higher-order functions. This example defines a helper, maps over a
 list, and uses `eval` to emit the transformed values:
@@ -164,7 +168,7 @@ list, and uses `eval` to emit the transformed values:
 }
 ```
 
-The block outputs the list `[3, 5, 6]` because the `eval` expression is the mapped list and `bump`
+The block outputs `<list> [3, 5, 6]` because the `eval` expression is the mapped list and `bump`
 is the bound function applied to each element.
 
 ## String Interpolation
@@ -178,5 +182,5 @@ Triple-quoted `f"..."` strings interpolate expressions inline, which keeps forma
 }
 ```
 
-This block evaluates to the string `Customer C-1024 owes 4200 units` because the interpolated
+This block evaluates to `<string> Customer C-1024 owes 4200 units` because the interpolated
 expressions resolve before the outer `eval` returns the text.
