@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "framework": null,
+  "installCommand": "echo 'Installation handled inside scripts/vercel-build.sh'",
+  "buildCommand": "bash scripts/vercel-build.sh",
+  "outputDirectory": "public",
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/.*", "dest": "/index.html" }
+  ]
+}
